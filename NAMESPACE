@@ -1,0 +1,44 @@
+export(
+        "sfInit",
+        "sfStop",
+
+        "sfParallel",
+        "sfNodes",
+        "sfCpus",
+        "sfGetCluster",
+        "sfSession",
+        "sfSetMaxCPUs",
+
+        "sfLibrary",
+        "sfSource",
+        "sfExport",
+        "sfExportAll",
+        "sfRemove",
+        "sfRemoveAll",
+        "sfCat",
+
+        ## Snow wrappers
+        "sfClusterMap",                    ## Currently not implemented.
+        "sfClusterApply",
+        "sfClusterApplyLB",
+
+        ## snowfall addition: intermediate save of results (with auto-restore)
+        "sfClusterApplySR",
+        "sfRestore",
+
+        "sfLapply",
+        "sfSapply",
+        "sfApply",
+        "sfRapply",                        ## Currently not implemented.
+        "sfCapply",                        ## Currently not implemented.
+        "sfMM",
+
+        "sfClusterSplit",
+        "sfClusterCall",
+        "sfClusterEval", "sfClusterEvalQ",
+        "sfClusterSetupRNG",
+        "sfClusterSetupRNGstream",
+        "sfClusterSetupSPRNG",
+        ## Unit tests
+        "sfTest"
+      )
