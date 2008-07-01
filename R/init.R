@@ -25,6 +25,10 @@ sfInit <- function( parallel=NULL,
   
   ## Global Vars made global. Prototype is sfOption from sysdata.rda
   if( !exists( ".sfOption", env=globalenv() ) ) {
+    if( !exists( "sfOption" ) )
+      warning( "Preconfigured variable sfOption is missing?" )
+
+    ## Reassign to user space .sfOption
     assign( ".sfOption", sfOption, pos=globalenv() )
 
     .sfOption$stopped <<- FALSE
@@ -48,7 +52,7 @@ sfInit <- function( parallel=NULL,
       sfStop();
     }
   }
-      
+
   ## Load server configuration file.
   data( "config", package="snowfall" )
   configM <- as.matrix( t( config ) )
@@ -162,16 +166,15 @@ sfInit <- function( parallel=NULL,
     ## korrekt startet und hängen bleibt (z.B. wenn zuviele CPUs für das
     ## Cluster angefordert werden - was PVM schluckt, macht MPI anscheinend
     ## Kopfzerbrechen).
-    setDefaultClusterOptions( homogenous = FALSE )
     setDefaultClusterOptions( type = "MPI" )
+    setDefaultClusterOptions( homogenous = FALSE )
 
-    .sfOption$cluster <<- try( makeCluster(
-                                       .sfOption$nodes,
+    .sfOption$cluster <<- try( makeCluster(  .sfOption$nodes,
 #                                       type = "MPI",
 #                                       homogenous = TRUE,
 #                                       homogenous = FALSE,
-                                       outfile = tmp
-                                     ) )
+                                             outfile = tmp
+                                          ) )
 
     ## Startup successfull? If not: stop.
     if( is.null( .sfOption$cluster ) ||
