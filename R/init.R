@@ -243,9 +243,18 @@ sfInit <- function( parallel=NULL,
   return( invisible( TRUE ) )
 }
 
+##*****************************************************************************
+## Check if sfInit() was called. This function is called before any function
+## which need initialisation of the cluster.
+##
+## Previous it stops with error, now it calls sfInit() without parameters,
+## so sfInit() does not have to be called explicitely.
+##*****************************************************************************
 sfCheck <- function() {
-  if( !exists( ".sfOption" ) || !.sfOption$init )
-    stop( "Calling to snowfall function is only allowed AFTER calling sfInit()!" )
+  if( !exists( ".sfOption" ) || !.sfOption$init ) {
+    message( "Calling a snowfall function without calling 'sfInit' first.\n'sfInit()' is called now." )
+    return( invisible( sfInit() ) )
+  }
 
   return( invisible( TRUE ) )
 }
