@@ -11,18 +11,22 @@
 ##             [Int cpus         - overwrites commandline settings]
 ##             [Boolean nostart  - If set, no cluster start will be run.
 ##                                 Needed for nested usage of snowfall]
+##             [String type      - {'MPI','SOCK', 'PVM', 'NWS'}
+##             [Vector socketHosts - List of all hosts used in socketmode]
 ## RETURN:     Boolean TRUE
 ##*****************************************************************************
 sfInit <- function( parallel=NULL,
 ##                    nodes=NULL,
                     cpus=NULL,
+                    type=NULL,
+                    socketHosts=NULL,
                     nostart=FALSE ) {
   ## Flag for detection of reconnect (means: non-first calls to sfInit())
   reconnect <- FALSE
 
   ## Saves users from many own if-clauses probably.
   if( nostart ) return( TRUE );
-  
+
   ## Global Vars made global. Prototype is sfOption from sysdata.rda
   if( !exists( ".sfOption", env=globalenv() ) ) {
     if( !exists( "sfOption" ) )
@@ -84,6 +88,9 @@ sfInit <- function( parallel=NULL,
   .sfOption$RESTORE      <<- FALSE    ## Restore previous results?
   .sfOption$CURRENT      <<- NULL     ## Currently executed R-File
 
+  .sfOption$type         <<- "SOCK"   ## Default cluster type.
+  .sfOption$sockHosts    <<- NULL     ## Hostlist for socket hosts.
+  
   ## Restore file directory (for saved intermediate results) - not neccessary
   ## under/in TMPDIR.
   ## (As log files prob woul be set in global dir, restore files should be
@@ -96,8 +103,8 @@ sfInit <- function( parallel=NULL,
 
   ## Values for parallel/session can be in the commandline or the enviroment.
   ## Function parameters overwrite commandline.
-  searchCommandline( parallel, cpus=cpus )
-
+  searchCommandline( parallel, cpus=cpus, type=type, socketHosts=socketHosts )
+ 
   if( getOption( 'verbose' ) && !reconnect )
     print( .sfOption )
 
@@ -110,42 +117,45 @@ sfInit <- function( parallel=NULL,
   
   ## Running in parallel mode? That means: Cluster setup.
   ## Will be blocked if argument "nostart" is set (for usage of snowfall
-  ## in packages).
+  ## inside of packages).
   if( .sfOption$parallel && !nostart ) {
     ## Internal stopper. Running in parallel mode a session-ID is needed.
     ## For testing purposes can be anything (mainly used for pathnames
     ## of logfiles).
     if( is.null( .sfOption$session ) )
-      stop( "no session-ID but running parallel..." )
-
+      warning( "no session-ID but running parallel..." )
+    ## @TODO regenerate session id if missing.
+    
     ## If amount of nodes not set via commandline, then it will be 2
     if( is.null( .sfOption$nodes ) || is.na( as.numeric( .sfOption$nodes ) ) )
       .sfOption$nodes <<- 2
     else
       .sfOption$nodes <<- as.numeric( .sfOption$nodes )
-    
-    ## Load snow (and Rmpi).
-    ## Not loaded at first as then the Rmpi package loaded from snow tries
-    ## to start a cluster - which can result in troubles in sequentially
-    ## testing mode on a machine without LAM/MPI.
-    if( !library( Rmpi, logical.return=TRUE ) ) {
-      message( paste( "Failed to load library 'Rmpi' required for parallel mode.\n",
-                      "Switching to sequential mode (1 cpu only)!." ) );
 
-      ## Re-Init in sequential mode.
-      return( sfInit( parallel=FALSE ) )
-##      stop( "failed to load library 'Rmpi' required for parallel mode" )
+    ## Preload required libraries if needed (as extended error check).
+    libList <- list( "PVM"="rpvm", "MPI"="Rmpi", "NWS"="nws", "SOCK"="" )
+
+    if( libList[[.sfOption$type]] != "" ) {
+      if( !library( libList[[.sfOption$type]], character.only=TRUE, logical.return=TRUE ) ) {
+        message( paste( "Failed to load required library:", libList[[.sfOption$type]],
+                        "for parallel mode", .sfOption$type, "\nFallback to sequential execution" ) )
+
+        ## Fallback to sequential mode.
+        return( sfInit( parallel=FALSE ) )
+      }
+      else
+        message( paste( "Library", libList[[.sfOption$type]], "loaded." ) )
     }
-      
+    
+    ## In any parallel mode, load snow.
     if( !library( snow, logical.return=TRUE ) ) {
       message( paste( "Failed to load library 'snow' required for parallel mode.\n",
                       "Switching to sequential mode (1 cpu only)!." ) );
 
-      ## Re-Init in sequential mode.
+      ## Fallback to sequential mode.
       return( sfInit( parallel=FALSE ) )
-##      stop( "failed to load library 'snow' required for parallel mode" )
     }
-      
+
     ## Temporary file for output.
     ## Fixed name as this is accessed by starter.
     ## Ending ".txt" is removed as the last thing in session number is the
@@ -161,26 +171,62 @@ sfInit <- function( parallel=NULL,
       dirCreateStop( .sfOption$TMPDIR )
     }
 
-    ## Exception Handler fehlt...
+    ## @TODO Exception handler.
+    ## @TODO Timeout on init.
     ## Ebenso: Timeout - das ist extrem hässlich, wenn das Cluster nicht
     ## korrekt startet und hängen bleibt (z.B. wenn zuviele CPUs für das
     ## Cluster angefordert werden - was PVM schluckt, macht MPI anscheinend
     ## Kopfzerbrechen).
-    setDefaultClusterOptions( type = "MPI" )
+    setDefaultClusterOptions( type = .sfOption$type )
     setDefaultClusterOptions( homogenous = FALSE )
 
-    .sfOption$cluster <<- try( makeCluster(  .sfOption$nodes,
-#                                       type = "MPI",
-#                                       homogenous = TRUE,
-#                                       homogenous = FALSE,
-                                             outfile = tmp
-                                          ) )
+    ## On socket connections the list of hosts needs to be given.
+    ## If no is set, use localhost with default R.
+    if( .sfOption$type == "SOCK" ) {
+      ## No host information given: use localhost with wished CPUs.
+      ## Else: host settings overwrite wished CPUs (important for error checks!).
+      if( is.null( .sfOption$sockHosts ) || ( length( .sfOption$sockHosts ) == 0 ) )
+        .sfOption$sockHosts <<- c( rep( "localhost", .sfOption$nodes ) )
+      else
+        .sfOption$nodes <<- length( .sfOption$sockHosts )
+
+      .sfOption$cluster <<- try( makeCluster( .sfOption$sockHosts,
+                                              type = "SOCK",
+                                              outfile = tmp,
+                                              homogenous = TRUE
+                                            ) )
+    }
+    # PVM cluster
+    else if( .sfOption$type == "PVM" ) {
+      .sfOption$cluster <<- try( makeCluster( .sfOption$nodes,
+                                              outfile = tmp
+                                            ) )
+    }
+    # Network Spaces
+    else if( .sfOption$type == "NWS" ) {
+      if( is.null( .sfOption$sockHosts ) || ( length( .sfOption$sockHosts ) == 0 ) )
+        .sfOption$sockHosts <<- c( rep( "localhost", .sfOption$nodes ) )
+      else
+        .sfOption$nodes <<- length( .sfOption$sockHosts )
+
+      .sfOption$cluster <<- try( makeNWSCluster( .sfOption$sockHosts,
+                                                 type = "NWS",
+                                                 .sfOption$nodes,
+                                                 outfile = tmp
+                                               ) )
+    }
+    # MPI cluster (also default for irregular type).
+    else {
+      .sfOption$cluster <<- try( makeCluster( .sfOption$nodes,
+                                              outfile = tmp
+                                            ) )
+    }
 
     ## Startup successfull? If not: stop.
     if( is.null( .sfOption$cluster ) ||
         inherits( .sfOption$cluster, "try-error" ) )
       stop( paste( "Starting of snow cluster failed!",
-                   geterrmessage() ) )
+                   geterrmessage(), .$sfOption$cluster ) )
     
     ## Cluster setup finished. Set flag (used in error handlers and stop).
     ## Also: no function can be called if init is not set.
@@ -204,7 +250,7 @@ sfInit <- function( parallel=NULL,
         message( paste( "Temporary log for STDOUT/STDERR (on each node): ", tmp, "\n",
                         "Cluster started with", .sfOption$nodes, "CPUs.", "\n" ) )
    
-      ## Write R-Version and Time in all logfiles.
+      ## Write R-Version and Time in logfile.
       .startInfo = strsplit( Sys.info(), "\n" );
       .startMsg <- paste( sep="",
                           "JOB STARTED AT ", date(),      # Global Var!
@@ -270,18 +316,20 @@ sfStop <- function( nostop=FALSE ) {
 
   if( exists( ".sfOption" ) ) {
     ## Only stop if initialisized and running parallel.
-    if( .sfOption$init && sfParallel() ) {
+    if( .sfOption$init && .sfOption$parallel ) {
       message( "\nStopping cluster\n" )
 
       ## Stopping snow cluster.
       stopCluster( .sfOption$cluster )
     }
 
+    ## Reset default values.
+    .sfOption$init     <<- FALSE
+    .sfOption$stopped  <<- TRUE
+    .sfOption$parallel <<- FALSE
+
     ## Delete probably stored resultfiles (can also be used in sequential mode!)
     deleteRestoreFiles()
-
-    .sfOption$init    <<- FALSE
-    .sfOption$stopped <<- TRUE
   }
 
   invisible( NULL )
@@ -295,7 +343,7 @@ sfStop <- function( nostop=FALSE ) {
 ## RETURN: Boolean Running in parallel mode
 ##*****************************************************************************
 sfParallel <- function() {
-  sfCheck();
+  sfCheck()
 
   if( exists( ".sfOption" ) )
     return( .sfOption$parallel )
@@ -307,40 +355,59 @@ sfParallel <- function() {
 ## Shall sfClusterApplySR restore results?
 ##*****************************************************************************
 sfRestore <- function() {
-  sfCheck();
+  sfCheck()
 
-  if( exists( ".sfOption" ) )
-    return( .sfOption$RESTORE )
-  else
-    return( FALSE )
+  return( .sfOption$RESTORE )
 }
 
 ##*****************************************************************************
 ## Receive snow cluster handler (for direct calls to snow functions).
 ##*****************************************************************************
 sfGetCluster <- function() {
-  sfCheck();
+  sfCheck()
 
-  if( exists( ".sfOption" ) )
-    return( .sfOption$cluster )
-  else
-    return( NULL )
+  return( .sfOption$cluster )
 }
 
 ##*****************************************************************************
 ## Receive amount of currently used CPUs (sequential: 1).
 ##*****************************************************************************
 sfCpus <- function() {
-  sfCheck();
+  sfCheck()
 
-  if( exists( ".sfOption" ) )
-    return( .sfOption$nodes )
-  else
-    return( NULL )
+  return( .sfOption$nodes )
 }
 
 ## getter for amount of nodes. Wrapper for sfCPUs.
 sfNodes <- function() return( sfCpus() )
+
+##*****************************************************************************
+## Receive type of current cluster.
+##*****************************************************************************
+sfType <- function() {
+  sfCheck()
+
+  if( sfParallel() )
+    return( .sfOption$type )
+  else
+    return( "- sequential -" )
+}
+
+##*****************************************************************************
+## Receive list with all socket hosts.
+##*****************************************************************************
+sfSocketHosts <- function() {
+  if( sfType() == "SOCK" ) {
+    sfCheck()
+
+    return( .sfOption$sockHosts )
+  }
+  else {
+    warning( paste( "No socket cluster used:", sfType() ) )
+
+    return( invisible( NULL ) )
+  }
+}
 
 ##*****************************************************************************
 ## getter for session-ID.
@@ -348,10 +415,7 @@ sfNodes <- function() return( sfCpus() )
 sfSession <- function() {
   sfCheck();
 
-  if( exists( ".sfOption" ) )
-    return( .sfOption$session )
-  else
-    return( NULL )
+  return( .sfOption$session )
 }
 
 ##*****************************************************************************
@@ -363,21 +427,40 @@ sfSetMaxCPUs <- function( number=32 ) {
 }
 
 ##*****************************************************************************
-## Internal function.
+## Internal function:
 ##
 ## Search commandline arguments for Parallel and Session values.
-## If there are arguments on commandline, these overwrites the values on the
+## If there are arguments on function call, these overwrites the values on the
 ## commandline.
+##
+## Basically the arguments on the commandline come from sfCluster, but of
+## course set manually or via another load- or sessionmanager.
 ##
 ## Commandline arguments: --parallel(=[01])*
 ##                        --session=\d{8}
 ##                        --nodes=\d{1,2}
 ##                        --tmpdir=\/[a-z].*
+##                        --hosts=((\s+:\d+))+
 ## Results will be saved in options .parallel (bool) and .session (8 chars)
 ##*****************************************************************************
-searchCommandline <- function( parallel=NULL, cpus=NULL ) {
+searchCommandline <- function( parallel=NULL, cpus=NULL, socketHosts=NULL, type=NULL ) {
   if( !exists( ".sfOption", envir=globalenv() ) )
     stop( "Global options missing. Internal error." )
+
+  ## If set, copy to sfCluster data structure.
+  if( !is.null( cpus ) ) {
+    .sfOption$nodes <<- max( 1, cpus )
+
+    ## If more than one CPU is wanted, parallel mode is forced.
+    ## Probably this is not an intended behavior.
+#    if( .sfOption$nodes > 1 ) {
+#      ## Potential misuse of argument: inform user.
+#      if( !is.null( parallel ) && ( parallel == FALSE ) )
+#        warning( "Explicit parallel=FALSE, but required >1 CPUs ==> parallel mode forced." )
+#
+#      parallel = TRUE
+#    }
+  }
 
   ## Defaults come from calling arguments on sfInitCluster.
   if( !is.null( parallel ) ) {
@@ -399,13 +482,30 @@ searchCommandline <- function( parallel=NULL, cpus=NULL ) {
 
       message( "Forced parallel. Using session: ", .sfOption$session, " \n" )
     }
-    else
+    ## Sequential mode: reduce to one CPU.
+    else {
+      .sfOption$nodes <<- 1
+
       message( "Forced to sequential mode.\n" )
+    }
   }
 
-  ## If set, copy to sfCluster data structure.
-  if( !is.null( cpus ) )
-    .sfOption$nodes <<- cpus
+  ## If socket hosts are set, take them.
+  if( !is.null( socketHosts ) || is.vector( socketHosts ) )
+    .sfOption$sockHosts <<- socketHosts
+
+  ## Type of the cluster ({SOCK|PVM|MPI|NWS} are allowed).
+  if( !is.null( type ) ) {
+    if( length( grep( "PVM|MPI|SOCK|NWS", type ) ) > 0 )
+      .sfOption$type <<- type
+    else {
+      warning( paste( "Unknown cluster type:", type, "Allowed are: {PVM,MPI,SOCK,NWS}" ) )
+      .sfOption$type <<- "SOCK"
+    }
+  }
+  ## Default value: socket cluster.
+  else
+    .sfOption$type <<- "SOCK"
 
   arguments <- commandArgs()
 
@@ -432,12 +532,12 @@ searchCommandline <- function( parallel=NULL, cpus=NULL ) {
   ## No R-file given: set to DEFAULT filename (always occurs in interactive
   ## mode).
   if( is.null( .sfOption$CURRENT ) )
-    .sfOption$CURRENT <- 'DEFAULT'
-  
+    .sfOption$CURRENT <<- 'DEFAULT'
+
   ## Go through all arguments from commandline.
   for( arg in arguments ) {
     ## Non sfCluster-like argument? Skip.
-    ## (Only empty argument are '--parallel' and '--restore')
+    ## (Only empty argument are '--parallel' and '--restoreSR')
     if( ( length( grep( "=", arg ) ) == 0 ) &&
         !( ( arg == "--parallel" ) || ( arg == "--restoreSR" ) ) )
       next;
@@ -448,13 +548,11 @@ searchCommandline <- function( parallel=NULL, cpus=NULL ) {
     ## Marker for parallel execution.
     ## If parallel was set via function arguments, commandline is ignored.
     if( ( args[[1]][1] == "--parallel" ) && ( is.null( parallel ) ) ) {
-      if( !is.null( args[[1]][2] ) && !is.na( as.numeric( args[[1]][2] ) ) ) {
+      if( !is.null( args[[1]][2] ) && !is.na( as.numeric( args[[1]][2] ) ) )
         .sfOption$parallel <<- ifelse( ( as.numeric( args[[1]][2] ) > 0 ), TRUE, FALSE )
-      }
       ## --parallel is allowed to use without value (means: true).
-      else {
+      else
         .sfOption$parallel <<- TRUE
-      }
     }
     ## Marker for restore (only used in sfClusterApplySR).
     else if( args[[1]][1] == "--restoreSR" ) {
@@ -470,9 +568,11 @@ searchCommandline <- function( parallel=NULL, cpus=NULL ) {
       else
         warning( paste( "Empty or irregular Session-ID: '", args[[1]][2], "'\n" ) )
     }
-    ## Amount of Nodes.
-    ## If set via function arguments, commandline is ignored.  
-    else if( ( args[[1]][1] == "--nodes" ) && ( is.null( cpus ) ) ) {
+    ## Amount of CPUs (formerly called "nodes", kept for backward
+    ## compatibility).
+    ## If set via function arguments, commandline is ignored.
+    else if( is.null( cpus ) &&
+             ( ( args[[1]][1] == "--nodes" ) || ( args[[1]][1] == "--cpus" ) ) ) {
       nodes <- as.numeric( args[[1]][2] )
 
       if( !is.null( nodes ) && !is.na( nodes ) ) {
@@ -481,13 +581,63 @@ searchCommandline <- function( parallel=NULL, cpus=NULL ) {
                        .sfOption$MAXNODES,
                        "\n - Call sfSetMaxCPUs() before sfInit() if you need more." ) )
 
-        if( nodes < 0 )
-          nodes <- 1
+          nodes <- max( 1, nodes )
         
         .sfOption$nodes <<- nodes
       }
       else
         warning( paste( "Empty or irregular nodes amount: '", nodes, "'\n" ) )
+    }
+    ## Type of the network.
+    else if( ( args[[1]][1] == "--type" ) && is.null( type ) ) {
+      if( !is.null( args[[1]][2] ) && ( nchar( args[[1]][2] ) > 0 ) ) {
+        if( length( grep( "PVM|MPI|SOCK|NWS", args[[1]][2] ) ) > 0 )
+          .sfOption$type <<- args[[1]][2]
+        else {
+          warning( paste( "Unknown cluster type:", args[[1]][2],
+                          "Allowed are: {PVM,MPI,SOCK,NWS}" ) )
+        }
+      }
+      else
+        warning( "No cluster-type is given as value for argument --type" )
+    }
+    ## Hosts for socket mode.
+    ## Arguments come in format:
+    ##   nodename:cpus  ->  On node X are Y cpus used.
+    ##   nodename       ->  On node X one cpu is used.
+    ## Any entries are comma seperated (no whitespace allowed!):
+    ##  node1:3,node2,node3:2
+    else if( ( args[[1]][1] == "--hosts" ) && is.null( socketHosts ) ) {
+      if( !is.null( args[[1]][2] ) && ( nchar( args[[1]][2] ) > 0 ) ) {
+        .sfOption$sockHosts <<- c()
+
+        hosts = unlist( strsplit( args[[1]][2], "," ) )
+
+        ## Examine single host
+        for( host in hosts ) {
+          info <- unlist( strsplit( host, ":" ) )
+
+          ## No CPU amount given: assume 1.
+          if( is.null( info[2] ) || is.na( info[2] ) )
+            info[2] <- 1
+
+          offset <- as.integer( info[2] )
+
+          if( offset <= 0 )
+            offset <- 1
+          
+          if( !is.numeric( offset ) )
+            stop( paste( "NOT NUMERIC: '", offset, "'", sep="" ) )
+
+          len <- length( .sfOption$sockHosts ) + 1
+
+          ## Insert Host n-times where n is amount of CPUs
+          ## (required for snows argument format).
+          .sfOption$sockHosts[seq(len,len+offset-1)] <<- rep( as.character( info[1] ), offset )
+        }
+      }
+      else
+        warning( "No hosts are given as value for --hosts" )
     }
     ## Temporary directory.
     else if( args[[1]][1] == "--tmpdir" ) {
@@ -510,4 +660,3 @@ searchCommandline <- function( parallel=NULL, cpus=NULL ) {
 
   invisible( NULL )
 }
-

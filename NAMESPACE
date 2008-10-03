@@ -5,8 +5,10 @@ export(
         "sfParallel",
         "sfNodes",
         "sfCpus",
+        "sfType",
         "sfGetCluster",
         "sfSession",
+        "sfSocketHosts",                   ## New 1.6
         "sfSetMaxCPUs",
 
         "sfLibrary",

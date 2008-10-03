@@ -1,0 +1,23 @@
+\contentsline {section}{\numberline {1}snowfall}{2}
+\contentsline {subsection}{\numberline {1.1}Getting started}{2}
+\contentsline {subsubsection}{\numberline {1.1.1}Requirements for sequential execution}{2}
+\contentsline {subsubsection}{\numberline {1.1.2}Requirements for parallel execution: Basics}{2}
+\contentsline {subsubsection}{\numberline {1.1.3}Requirements for parallel execution: MPI}{2}
+\contentsline {subsubsection}{\numberline {1.1.4}Requirements for parallel execution: LAM/MPI}{2}
+\contentsline {subsubsection}{\numberline {1.1.5}Requirements for parallel execution: PVM/NWS}{3}
+\contentsline {subsection}{\numberline {1.2}(Short) introduction to parallel programming}{3}
+\contentsline {subsection}{\numberline {1.3}Introduction to usage of snowfall}{3}
+\contentsline {subsection}{\numberline {1.4}Writing parallel programs with snowfall}{5}
+\contentsline {subsubsection}{\numberline {1.4.1}General notes and simple example}{5}
+\contentsline {subsubsection}{\numberline {1.4.2}Basic load balancing using \texttt {sfClusterApplyLB}}{6}
+\contentsline {subsubsection}{\numberline {1.4.3}Intermediate result saving and restoring using \texttt {sfClusterApplySR}}{7}
+\contentsline {subsection}{\numberline {1.5}Fault tolerance}{8}
+\contentsline {subsection}{\numberline {1.6}Controlling snowfall using the command line}{8}
+\contentsline {subsection}{\numberline {1.7}Traps, Internals}{9}
+\contentsline {section}{\numberline {2}Using \emph {sfCluster} with \texttt {snowfall}}{10}
+\contentsline {subsection}{\numberline {2.1}About \emph {sfCluster}}{10}
+\contentsline {subsection}{\numberline {2.2}Starting R using \emph {sfCluster}}{10}
+\contentsline {subsection}{\numberline {2.3}Using \emph {sfCluster}}{10}
+\contentsline {subsection}{\numberline {2.4}The snowfall-side of \emph {sfCluster}}{11}
+\contentsline {subsection}{\numberline {2.5}Proposed development cycle}{12}
+\contentsline {subsection}{\numberline {2.6}Future sfCluster}{12}

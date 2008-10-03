@@ -5,20 +5,24 @@
 \alias{sfParallel}
 \alias{sfCpus}
 \alias{sfNodes}
+\alias{sfType}
+\alias{sfSocketHosts}
 \alias{sfGetCluster}
 \alias{sfSession}
 \alias{sfSetMaxCPUs}
 
 \title{Initialisation of cluster usage}
 \usage{
-sfInit( parallel=NULL, cpus=NULL, nostart=FALSE )
+sfInit( parallel=NULL, cpus=NULL, type=NULL, socketHosts=NULL, nostart=FALSE )
 sfStop( nostop=FALSE )
 
 sfParallel()
 sfCpus()
 sfNodes()
 sfGetCluster()
+sfType()
 sfSession()
+sfSocketHosts()
 sfSetMaxCPUs( number=32 )
 }
 \arguments{
@@ -29,6 +33,11 @@ sfSetMaxCPUs( number=32 )
   \item{nostart}{Logical determinating if the basic cluster setup should
     be skipped. Needed for nested use of \pkg{snowfall} and usage in
     packages.}
+  \item{type}{Type of cluster. Can be 'SOCK', 'MPI', 'PVM' or 'NWS'. Default is 'SOCK'.}
+  \item{socketHosts}{Host list for socket clusters. Only needed for
+    socketmode (SOCK) and
+    if using more than one machines (if using only your local machine
+    (localhost) no list is needed).}
   \item{nostop}{Same as noStart for ending.}
   \item{number}{Amount of maximum CPUs useable.}
 }
@@ -48,8 +57,12 @@ sfSetMaxCPUs( number=32 )
   lockfiles. If this function is called more than once and current
   cluster is yet running, \code{sfStop} is called automatically.
 
-  Note that you MUST call \code{sfInit} before using any other function
+  Note that you should call \code{sfInit} before using any other function
   from \pkg{snowfall}, with the only exception \code{sfSetMaxCPUs}.
+  If you don't call \code{sfInit} first, on calling an \pkg{snowfall}
+  function \code{sfInit} is called without any parameters, which is
+  equal to sequential mode in \pkg{snowfall} only mode or the settings from
+  sfCluster if used with sfCluster.
 
   If you use \pkg{snowfall} in a package argument \code{nostart} is very
   handy if mainprogram uses \pkg{snowfall} as well. If set, cluster
@@ -61,7 +74,21 @@ sfSetMaxCPUs( number=32 )
   executed automatically. If your R-environment does not cover required
   libraries, \code{sfInit} automatically switches to sequential mode
   (with a warning). Required libraries for parallel usage are \pkg{snow}
-  and \pkg{Rmpi}.
+  and depending on argument \code{type} the libraries for the
+  cluster mode (none for
+  socket clusters, \pkg{Rmpi} for MPI clusters, \pkg{rpvm} for
+  PVM clusters and \pkg{nws} for NetWorkSpaces).
+
+  If using Socket or NetWorkSpaces, \code{socketHosts} can be used to
+  specify the hosts you want to have your workers running.
+  Basically this is a list, where any entry can be a plain character
+  string with IP or hostname (depending on your DNS settings). Also
+  for real heterogenous clusters for any host pathes are setable. Please
+  look to the acccording \pkg{snow} documentation for details.
+  If you are not giving an socketlist, a list with the required amount
+  of CPUs on your local machine (localhost) is used. This would be the
+  easiest way to use parallel computing on a single machine, like a
+  laptop.
 
   Note there is limit on CPUs used in one program (which can be
   configured on package installation). The current limit are 32 CPUs. If
@@ -97,6 +124,14 @@ sfSetMaxCPUs( number=32 )
   \code{sfGetCluster} gets the \pkg{snow}-cluster handler. Use for
   direct calling of \pkg{snow} functions.
 
+  \code{sfType} returns the type of the current cluster backend (if
+  used any). The value can be SOCK, MPI, PVM or NWS for parallel
+  modes or "- sequential -" for sequential execution.
+
+  \code{sfSocketHosts} gives the list with currently used hosts for
+  socket clusters. Returns empty list if not used in socket mode (means:
+  \code{sfType() != 'SOCK'}).
+  
   \code{sfSetMaxCPUs} enables to set a higher maximum CPU-count for this
   program. If you need higher limits, call \code{sfSetMaxCPUs} before
   \code{sfInit} with the new maximum amount.
@@ -114,14 +149,38 @@ See snow documentation for details on commands:
   sfStop()
 
   # Run in parallel mode overwriting probably given values on
-  # commandline. Hooks in running LAM cluster, if none is running,
-  # snow is spawning one on localhost.
-  sfInit( parallel=TRUE, nodes=10 )
-  stopifnot( sfCpus() == 10 )
+  # commandline.
+  # Executes via Socket-cluster with 4 worker processes on
+  # localhost.
+  # This is probably the best way to use parallel computing
+  # on a single machine, like a notebook, if you are not
+  # using sfCluster.
+  # Uses Socketcluster (Default) - which can also be stated
+  # using type="SOCK".
+  sfInit( parallel=TRUE, nodes=4 )
+  stopifnot( sfCpus() == 4 )
   stopifnot( sfParallel() == TRUE )
   sfStop()
 
-  # Run in sfCluster-mode: settings are taken from commandline.
+  # Run parallel mode (socket) with 4 workers on 3 specific machines.
+  sfInit( parallel=TRUE, nodes=4, type="SOCK",
+          socketHosts=c( "biom7", "biom7", "biom11", "biom12" ) )
+  stopifnot( sfCpus() == 4 )
+  stopifnot( sfParallel() == TRUE )
+  sfStop()
+
+  # Hook into MPI cluster.
+  # Note: you can use any kind MPI cluster Rmpi supports.
+  sfInit( parallel=TRUE, nodes=4, type="MPI" )
+  sfStop()
+
+  # Hook into PVM cluster.
+  sfInit( parallel=TRUE, nodes=4, type="PVM" )
+  sfStop()
+
+  # Run in sfCluster-mode: settings are taken from commandline:
+  # Runmode (sequential or parallel), amount of nodes and hosts which
+  # are used.
   sfInit()
 
   # Session-ID from sfCluster (or XXXXXXXX as default)
@@ -136,4 +195,3 @@ See snow documentation for details on commands:
   sfStop()
 }
 }
-

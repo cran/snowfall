@@ -10,7 +10,6 @@
 
 \usepackage{url}
 
-\usepackage{/usr/local/R/R-2.5.1/lib/R/share/texmf/Sweave}
 \begin{document}
 
 \pagestyle{empty}
@@ -72,12 +71,8 @@ can be running in parallel without any code change.
 \subsubsection{Requirements for parallel execution: Basics}
 If you just want to use parallel computing on your local PC or
 laptop you are just fine with basically installation of
-\texttt{snowfall} and \texttt{snow}.
-You can use then a so called socket cluster,
+snowfall and snow. You can use then a so called socket cluster,
 for which no additional software needs to be installed.
-
-If you are just wanting to use parallel programming on your
-local workstation, PC or laptop, you are fine.
 
 \subsubsection{Requirements for parallel execution: MPI}
 You have a running MPI cluster (OpenMPI or any other kind of
@@ -406,7 +401,7 @@ type=X & Type of cluster. Allowed values are SOCK, MPI, PVM and NWS. \\
 session=X & Session number. snowfall logfiles contain number, but only needed with sfCluster. \\
 restoreSR & Enables restoring of peviously saved results from sfClusterApplySR calls. \\
 hosts=X & List of hosts for Socket (SOCK) or NetWorkSpaces (NWS) clusters. Entries are comma seperated. Any entry may contain colon seperated value for the amount of processors on this machine. Example: \texttt{--hosts=machine1:4,machine2,123.123.12.13:2} (this spawns 4 workers on machine1, one on machine2 and two on 123.123.12.13). \\
-tmpdir=X & Specify temporary directory for logfiles and R-output. \\
+--tmpdir=X & Specify temporary directory for logfiles and R-output. \\
 \end{tabular} 
 
 For using these arguments, just add these after an \texttt{--args} on the commandline (which
@@ -546,16 +541,16 @@ will be visible (like non correct working libraries).
 Do real runs using silent batch mode (start using options
 \texttt{-b {-}{-}quiet}). Probably you want to run these runs in the
 background of your Unix shell using \texttt{nohup}.
-\end{enumerate}
+\end{enumerate}\subsection{Future}
 
-\subsection{Future sfCluster}
-
-These additions are planned for the future:
+Theseadditions are planned for the future:
 
 \begin{itemize}
+\item Easy to use installation program
 \item Port to OpenMPI
 \item Faster SSH connections for observing
 \item Extended scheduler for system ressources
+\item Extended batch captabilities
 \end{itemize}
 \bibliographystyle{plain}
 \bibliography{all-bib}

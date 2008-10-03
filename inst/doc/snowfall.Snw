@@ -18,18 +18,39 @@
 \setlength{\parskip}{0.5em}
 \setlength{\parindent}{0.0em}
 \begin{titlepage}
-\author{Sascha Frank} 
 \title{Developing parallel programs using snowfall}
 \author{Jochen Knaus}
-\date{2008-04-29}
+\date{2008-10-07}
 \maketitle
 
 \begin{abstract}
 \texttt{snowfall} is an R package for easier parallel programming
-using clusters. Basically it is build upon the package
-\texttt{snow}, extending implicit useable sequential support,
-some additional calculation functions and tools and direct connection
-to the cluster manager \emph{sfCluster}.
+using clusters.
+Basically it is build upon the package \texttt{snow} using it's
+network and cluter abilities and therefore offering use of
+Socket, MPI, PVM and NetWorkSpaces support.
+
+\texttt{snow} functions can used from within \texttt{snowfall} as well.
+
+\texttt{snowfall} offers additional support for implicit sequential
+execution (e.g. for distributing packages using optional parallel
+support), additional calculation functions and many functions for
+more comfortable programming.
+
+Also, \texttt{snowfall} can be configured via command line
+arguments, making the change of cluster settings easier without
+program change. This can be used to connect to batch- and workloadmanagers.
+
+Finally \texttt{snowfall} can be directly connected to the R-specific
+cluster manager \emph{sfCluster}.
+
+\texttt{snowfall} does not add an technical layer of abstraction
+to \texttt{snow}. But beside from the connector to \texttt{sfCluster}, it
+builds an extra layer of usability on the top of \texttt{snow}.
+
+It is not thought as an replacement for \texttt{snow}, but an addition for
+inexperienced users or those who seek more comfort using parallel
+computing and R.
 \end{abstract}
 \end{titlepage}
 
@@ -47,10 +68,26 @@ executed sequential.
 Programs written in sequential use with \texttt{snowfall} calls
 can be running in parallel without any code change.
 
-\subsubsection{Requirements for parallel execution}
-If you want to run programs with usage of more than one CPU (on
-one machine or a complete cluster of machines), you need to setup
-a LAM/MPI cluster on all machines first.
+\subsubsection{Requirements for parallel execution: Basics}
+If you just want to use parallel computing on your local PC or
+laptop you are just fine with basically installation of
+\texttt{snowfall} and \texttt{snow}.
+You can use then a so called socket cluster,
+for which no additional software needs to be installed.
+
+If you are just wanting to use parallel programming on your
+local workstation, PC or laptop, you are fine.
+
+\subsubsection{Requirements for parallel execution: MPI}
+You have a running MPI cluster (OpenMPI or any other kind of
+MPI cluster) available.
+
+Although snowfall is useable with OpenMPI as well, the
+management software sfCluster can currently only used with
+LAM/MPI.
+
+\subsubsection{Requirements for parallel execution: LAM/MPI}
+For using sfCluster with snowfall, currently LAM/MPI is needed.
 
 If you are using Debian/Ubuntu Linux, just call\\
 \texttt{aptitude install xmpi lam4-dev}\footnote{On other Linux distributions
@@ -96,6 +133,12 @@ or available ressources (memory, cpus).
 
 For workgroups or larger clusters, management solutions like
 \emph{sfCluster} are strongly recommended.
+
+\subsubsection{Requirements for parallel execution: PVM/NWS}
+PVM and NetWorkSpaces/Sleight are supported in snowfall as these
+are useable with snow. But both are less supported by sfCluster
+(but at least a managed start can be done using sfCluster), so
+there is no further documentation about their usage here.
 
 \subsection{(Short) introduction to parallel programming}
 The general goal of paralleling your R program is to vectorize the data
@@ -312,17 +355,19 @@ If you only use one call to \texttt{sfClusterApplySR} in your program,
 the parameter \texttt{name} does not need to be changed, it only is
 important if you use more than one call to \texttt{sfClusterApplySR}.
 
+\begin{center}
 \begin{verbatim}
 sfInit( parallel=TRUE, cpus=2 )
 
-## Saves under Name ``default''
+# Saves under Name default
 resultA <- sfClusterApplySR( somelist, somefunc )
 
-## Must be another name.
-resultB <- sfClusterApplySR( someotherlist, someotherfunc, name=''CALC_TWO'' )
+# Must be another name.
+resultB <- sfClusterApplySR( someotherlist, someotherfunc, name="CALC_TWO" )
 
 sfStop()
 \end{verbatim}
+\end{center}
 
 If cluster stops probably during run of \texttt{someotherfunc} and
 restarted with restore-Option, the complete result of \texttt{resultA}
@@ -342,6 +387,48 @@ Differing from \texttt{snowFT}, the fault tolerance extension for
 (see \cite{HANA_04}).
 
 This is due to the lack of an MPI implementation of \texttt{snowFT}.
+
+\subsection{Controlling snowfall using the command line}
+snowfall can be widely controlled via command line arguments.
+
+This is useful for fast changing of cluster parameters (e.g. changing
+the host names in a Socket cluster) on a raw installation and it serves
+as connection to sfCluster. Of course it can be used as connection to
+any other workload- or batch managing software, too.
+
+On the commandline there are the following parameters:
+
+\begin{tabular}{lp{10cm}}
+parallel & Switch to parallel execution. Default is sequential execution \\
+cpus=X & Amount of CPUs wanted. Without --parallel, a value $X > 1$ switch to parallel execution. \\
+type=X & Type of cluster. Allowed values are SOCK, MPI, PVM and NWS. \\
+session=X & Session number. snowfall logfiles contain number, but only needed with sfCluster. \\
+restoreSR & Enables restoring of peviously saved results from sfClusterApplySR calls. \\
+hosts=X & List of hosts for Socket (SOCK) or NetWorkSpaces (NWS) clusters. Entries are comma seperated. Any entry may contain colon seperated value for the amount of processors on this machine. Example: \texttt{--hosts=machine1:4,machine2,123.123.12.13:2} (this spawns 4 workers on machine1, one on machine2 and two on 123.123.12.13). \\
+tmpdir=X & Specify temporary directory for logfiles and R-output. \\
+\end{tabular} 
+
+For using these arguments, just add these after an \texttt{--args} on the commandline (which
+forces R not to treat these arguments as R ones).
+
+\begin{center}
+ \texttt{R --no-save --args --parallel --cpus=2 < program.R}
+\end{center}
+
+Starts R and forces snowfall to start in parallel mode with 2 CPUs (in this case: using a
+Socket-cluster, as this is the default).
+
+\textit{Note}: arguments on the command line have lower priority as settings from the \texttt{sfInit} call.
+That means that the above example only works if initialisation is done via \texttt{sfInit()}, but
+not with \texttt{sfInit( parallel=FALSE )}, as then sequential execution is forced.
+
+Further examples should explan the feature:
+
+\begin{itemize}
+ \item \texttt{R --no-save --args --parallel --type=MPI --cpus=4 < program.R} (start using 4 workers in an existing MPI cluster. If no MPI cluster exists, a plain one is started on your local machine only. Beware of this, as you have to shutdown this cluster afterwards manually.).
+ \item \texttt{R --no-save --args --parallel --type=SOCK --hosts=localhost:3,singlema,othmach:4 < program.R}
+(Starts a socket cluster with two machines and 7 CPUs: 3 on \texttt{localhost}, 4 on \texttt{othmach} and one worker on \texttt{singlema}).
+\end{itemize}
 
 \subsection{Traps, Internals}
 \texttt{snowfall} limits the amount of CPUs by default (to 40). If you
@@ -400,7 +487,7 @@ There is a builtin limit for the amount of CPUs, which is changeable using the
 
 There are four execution modes:
 
-\begin{tabular}{lll}
+\begin{tabular}{lp{3cm}p{9cm}}
 -b & Batchmode (Default) & Run silent on terminal.\\
 -i & Interactive R-shell & Ability to use interactive R-shell with cluster.\\
 -m & Monitoring mode & Visual processmonitor and logfile viewer.\\
@@ -458,17 +545,16 @@ will be visible (like non correct working libraries).
 Do real runs using silent batch mode (start using options
 \texttt{-b {-}{-}quiet}). Probably you want to run these runs in the
 background of your Unix shell using \texttt{nohup}.
-\end{enumerate}\subsection{Future}
+\end{enumerate}
 
-Theseadditions are planned for the future:
+\subsection{Future sfCluster}
+
+These additions are planned for the future:
 
 \begin{itemize}
-\item Easy to use installation program
 \item Port to OpenMPI
 \item Faster SSH connections for observing
 \item Extended scheduler for system ressources
-\item Extended batch captabilities
-\item Port to Windows/CygWin
 \end{itemize}
 \bibliographystyle{plain}
 \bibliography{all-bib}
