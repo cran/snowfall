@@ -178,7 +178,7 @@ sfSource <- function( file,
     res <- try( source( file=absFile, encoding=encoding,
                         echo=TRUE, local=FALSE, chdir=FALSE ) )
 
-    if( inherits( success, "try-error" ) ) {
+    if( inherits( res, "try-error" ) ) {
       if( stopOnError )
         stop( paste( "Try error loading on master: '", file, "'", sep="" ) )
       else {
@@ -466,10 +466,11 @@ sfRemoveAll <- function( except=NULL, debug=FALSE ) {
 ## Fast messages on the cluster (all nodes!).
 ## For testing proposes mainly.
 ##
-## PARAMETER: Vector x Objects to print,
-##            String sep Separator
+## PARAMETER: Vector  x      Objects to print,
+##            String  sep    Separator
+##            Boolean master Print on master as well
 ##****************************************************************************
-sfCat <- function( ..., sep=" " ) {
+sfCat <- function( ..., sep=" ", master=TRUE ) {
   sfCheck();
 
   .sfTmpX   <- c( ... )
@@ -488,7 +489,8 @@ sfCat <- function( ..., sep=" " ) {
   }
 
   ## Master&sequential mode.
-  cat( .sfTmpX, sep=.sfTmpSEP )
+  if( master )
+    cat( .sfTmpX, sep=.sfTmpSEP )
 
   invisible( TRUE )
 }
@@ -560,7 +562,8 @@ sfClusterApplySR <- function( x, fun,
   ## If it seems that the results are ok, take them and continue at their end.
   if( file.exists( file ) && restore ) {
     ## Temp global var for saving possible loading errors.
-    .sfLoadError <<- ""
+    sfLoadError <- ""
+    assign( ".sfLoadError", sfLoadError, pos=globalenv() )
 
     ## Load in current environment.
     tryCatch( load( file ), error=function( x ) { .sfLoadError <<- x } )
@@ -683,7 +686,7 @@ sfClusterApplySR <- function( x, fun,
 }
 
 ##****************************************************************************
-## Complete "Unit test" or most of the buildin functions.
+## Complete "unit test" or most of the buildin functions.
 ## Mainly integrated for development, but can be used for testing the
 ## R functionality on all nodes, too.
 ##
@@ -1071,7 +1074,7 @@ sfTest <- function() {
               "testCalc2",
               "testLib",
               "testSource" )
-  
+
   ## Run tests.
   for( test in tests )
     complete[[test]] <- runTest( test )

@@ -23,29 +23,28 @@
 
 \title{Cluster tools}
 \usage{
-sfLibrary( package, pos = 2,
-           lib.loc = NULL, character.only = FALSE,
-           warn.conflicts = TRUE,
-           keep.source = getOption("keep.source.pkgs"),
-           verbose = getOption("verbose"), version,
-           stopOnError = TRUE )
+sfLibrary( package, pos=2,
+           lib.loc=NULL, character.only=FALSE,
+           warn.conflicts=TRUE,
+           keep.source=getOption("keep.source.pkgs"),
+           verbose=getOption("verbose"), version,
+           stopOnError=TRUE )
 sfSource( file, encoding = getOption("encoding"), stopOnError = TRUE )
-sfExport( ..., list = NULL, local = TRUE, debug=FALSE )
-sfExportAll( except = NULL, debug = FALSE )
+sfExport( ..., list=NULL, local=TRUE, debug=FALSE )
+sfExportAll( except=NULL, debug=FALSE )
 
-sfRemove( ..., list = NULL, master = FALSE, debug = FALSE )
-sfRemoveAll( except = NULL, debug = FALSE )
+sfRemove( ..., list=NULL, master=FALSE, debug=FALSE )
+sfRemoveAll( except=NULL, debug=FALSE )
 
-sfCat( ..., sep=" " )
+sfCat( ..., sep=" ", master=TRUE )
 
 sfClusterSplit( seq )
-sfClusterCall( fun, ..., stopOnError = TRUE )
-sfClusterEval( expr, stopOnError = TRUE )
+sfClusterCall( fun, ..., stopOnError=TRUE )
+sfClusterEval( expr, stopOnError=TRUE )
 
-sfClusterSetupRNG( type = "RNGstream", ... )
-sfClusterSetupRNGstream( seed = rep(12345,6), ... )
-sfClusterSetupSPRNG( seed = round(2^32*runif(1)), prngkind =
-                    "default", para = 0, ... )
+sfClusterSetupRNG( type="RNGstream", ... )
+sfClusterSetupRNGstream( seed=rep(12345,6), ... )
+sfClusterSetupSPRNG( seed=round(2^32*runif(1)), prngkind="default", para=0, ... )
 
 sfTest()
 }
@@ -59,10 +58,9 @@ sfTest()
   \item{debug}{a logical indicating extended information is given upon
     action to be done (e.g. print exported variables, print context of
     local variables etc.).}
-  \item{master}{a logical indicating wheter the given variables shall
-    removed from master or not.}
   \item{except}{character vector with names of objects not to export/remove}
   \item{sep}{a character string separating elements in x}
+  \item{master}{a logical indicating if executed on master as well}
   \item{...}{additional arguments to pass to standard function}
   \item{package}{name of the package. Check \code{library} for details.}
   \item{pos}{position in search path to load library.}

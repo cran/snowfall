@@ -13,7 +13,7 @@
 
 \title{Initialisation of cluster usage}
 \usage{
-sfInit( parallel=NULL, cpus=NULL, type=NULL, socketHosts=NULL, nostart=FALSE )
+sfInit( parallel=NULL, cpus=NULL, type=NULL, socketHosts=NULL, restore=NULL, slaveOutfile=NULL, nostart=FALSE )
 sfStop( nostop=FALSE )
 
 sfParallel()
@@ -38,6 +38,12 @@ sfSetMaxCPUs( number=32 )
     socketmode (SOCK) and
     if using more than one machines (if using only your local machine
     (localhost) no list is needed).}
+  \item{restore}{Globally set the restore behavior in the call
+    \code{sfClusterApplySR} to the given value.}
+  \item{slaveOutfile}{Write R slave output to this file. Default: no
+    output (Unix: \code{/dev/null}, Windows: \code{:nul}). If
+    using sfCluster this argument has no function, as slave logs are
+    defined using sfCluster.}
   \item{nostop}{Same as noStart for ending.}
   \item{number}{Amount of maximum CPUs useable.}
 }
@@ -95,7 +101,16 @@ sfSetMaxCPUs( number=32 )
   you need a higher amount of CPUs, call \code{sfSetMaxCPUs}
   \emph{before} the first call to \code{sfInit}. The limit is set to
   prevent inadvertently request by single users affecting the cluster as
-  a whole. 
+  a whole.
+
+  Use \code{slaveOutfile} to define a file where to write the log
+  files. The file location must be available on all nodes. Beware of
+  taking a location on a shared network drive! Under *nix systems, most
+  likely the directories \code{/tmp} and \code{/var/tmp} are not shared
+  between the different machines. The default is no output file.
+  If you are using \code{sfCluster} this
+  argument have no meaning as the slave logs are always created in a
+  location of \code{sfClusters} choice (depending on it's configuration).
 
   \code{sfStop} stop cluster. If running in parallel mode, the LAM/MPI
   cluster is shut down.

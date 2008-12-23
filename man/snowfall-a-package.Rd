@@ -2,7 +2,7 @@
 \alias{snowfall-package}
 \alias{snowfall}
 \docType{package}
-\title{Toplevel wrapper for snow to make parallel programming even
+\title{Toplevel useability wrapper for snow to make parallel programming even
   more easy and comfortable.
   All functions are able to run without cluster in sequential mode.
   Also snowfall works as connector to the cluster management
@@ -17,8 +17,8 @@
 \tabular{ll}{
 Package: \tab snowfall\cr
 Type: \tab Package\cr
-Version: \tab 1.5\cr
-Date: \tab 2008-06-11\cr
+Version: \tab 1.61\cr
+Date: \tab 2008-11-01\cr
 License: \tab GPL\cr
 }
 }
@@ -64,7 +64,7 @@ Jochen Knaus <jo@imbi.uni-freiburg.de>,
   http://cran.r-project.org/src/contrib/Descriptions/snow.html\cr\cr
 
   \code{sfCluster} (Unix management tool for \pkg{snowfall} clusters):\cr
-  http://www.imbi.uni-freiburg.de\cr
+  http://www.imbi.uni-freiburg.de/parallel\cr
 }
 \keyword{package}
 \seealso{

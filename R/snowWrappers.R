@@ -42,7 +42,7 @@ sfClusterCall <- function( fun, ..., stopOnError=TRUE ) {
     result <- clusterCall( sfGetCluster(), fun, ... )
 
     ## Not enough results?
-    ## @TODO Check if this test is needed (Snow allways return list of correct size?)
+    ## @TODO Check if this test is needed
     if( length( result ) != sfCpus() ) {
       if( stopOnError )
         stop( paste( "Error in sfClusterCall (not all slaves responded).\n",
@@ -162,7 +162,7 @@ sfClusterApplyLB <- function( x, fun, ... ) {
 ## RETURN:     Result
 ##****************************************************************************
 sfLapply <- function( x, fun, ... ) {
-  sfCheck();
+  sfCheck()
 
   checkFunction( fun )
   
@@ -179,14 +179,14 @@ sfLapply <- function( x, fun, ... ) {
 ## RETURN:     Result
 ##****************************************************************************
 sfSapply <- function( x, fun, ..., simplify=TRUE, USE.NAMES=TRUE ) {
-  sfCheck();
+  sfCheck()
 
   checkFunction( fun )
 
   if( sfParallel() )
-    return( parSapply( sfGetCluster(), x, fun, ..., simplify, USE.NAMES ) )
+    return( parSapply( sfGetCluster(), x, fun, ..., simplify=simplify, USE.NAMES=USE.NAMES ) )
   else
-    return( sapply( x, fun, ..., simplify, USE.NAMES ) )
+    return( sapply( x, fun, ..., simplify=simplify, USE.NAMES=USE.NAMES ) )
 }
 
 ##****************************************************************************
@@ -196,7 +196,7 @@ sfSapply <- function( x, fun, ..., simplify=TRUE, USE.NAMES=TRUE ) {
 ## RETURN:     Result
 ##****************************************************************************
 sfApply <- function( x, margin, fun, ... ) {
-  sfCheck();
+  sfCheck()
 
   checkFunction( fun )
 
@@ -244,8 +244,8 @@ sfClusterSetupSPRNG <- function( seed = round( 2^32 * runif(1) ),
   if( sfParallel() )
     clusterSetupSPRNG( sfGetCluster(), seed, prngkind, para, ... )
   else {
-    warning( "Uniform random number streams (currently) not available in serial execution." +
-             "Random numbers may differ in serial & parallel execution." )
+    warning( paste( "Uniform random number streams (currently) not available in serial execution.",
+                    "Random numbers may differ in serial & parallel execution." ) )
     set.seed( seed )
   }
 }
@@ -256,8 +256,8 @@ sfClusterSetupRNGstream <- function( seed=rep( 12345, 6 ), ... ) {
   if( sfParallel() )
     clusterSetupRNGstream( sfGetCluster(), seed=seed, ... )
   else {
-    warning( "Uniform random number streams (currently) not available in serial execution." +
-             "Random numbers may differ in serial & parallel execution." )
+    warning( paste( "Uniform random number streams (currently) not available in serial execution.",
+                    "Random numbers may differ in serial & parallel execution." ) )
     set.seed( seed[1] )
   }
 }
@@ -268,7 +268,7 @@ sfClusterSetupRNG <- function( type="RNGstream", ... ) {
   if( sfParallel() )
     clusterSetupRNG( sfGetCluster(), type=type, ... )
   else {
-    warning( "Uniform random number streams (currently) not available in serial execution." +
-             "Random numbers may differ in serial & parallel execution." )
+    warning( paste( "Uniform random number streams (currently) not available in serial execution.",
+                    "Random numbers may differ in serial & parallel execution." ) )
   }
 }

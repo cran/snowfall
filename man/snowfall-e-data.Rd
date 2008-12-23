@@ -16,6 +16,4 @@ f2
 sfOption
 }
 \format{A matrix containing basic predefined configuration informations.}
-\source{}
-\references{}
 \keyword{datasets}

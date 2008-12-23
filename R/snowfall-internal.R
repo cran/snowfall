@@ -2,10 +2,35 @@
 ## Unordered internal helper functions.
 ##*****************************************************************************
 
-
+##*****************************************************************************
+## Replaces the tilde operator in file/directory names with the system
+## depending counterpart.
+## Used for configuration files mainly.
+##
+## PARAMETER: String directory
+## RETURN:    String directory replaced
+##*****************************************************************************
+fetchDirName <- function( dir ) {
+  return( gsub( "~", Sys.getenv( "HOME" ), dir ) )
+}
 
 ##*****************************************************************************
-## Creates a directory if needed and stops on failure.
+## Is this snowfall session started through sfCluster?
+## As a backward compatible solution there is only the LOCKFILE option open
+## (as there is no default for it and setable through commandline).
+##
+## PARAMETER: -
+## RETURN:    Boolean True (running with sfCluster), False
+##*****************************************************************************
+startedWithSfCluster <- function() {
+  if( !exists( ".sfOption" ) )
+    return( FALSE )
+  else
+    return( !is.null( .sfOption$LOCKFILE ) && ( .sfOption$LOCKFILE != '' ) )
+}
+
+##*****************************************************************************
+## Creates a directory (recursive) if needed and stops on failure.
 ##
 ## PARAMETER: String directory
 ## RETURN:    Boolean success (true, on fail, execution stops)
@@ -33,11 +58,13 @@ dirCreateStop <- function( dir=NULL ) {
 addRestoreFile <- function( file=NULL ) {
   if( !is.null( file ) )
     if( is.vector( .sfOption$RESTOREFILES ) )
-      .sfOption$RESTOREFILES <<- c( .sfOption$RESTOREFILES, file )
+      ## Check if file is already in the list. If yes: no add.
+      if( length( grep( file, .sfOption$RESTOREFILES ) ) == 0 )
+        .sfOption$RESTOREFILES <<- c( .sfOption$RESTOREFILES, file )
     else
       .sfOption$RESTOREFILES <<- c( file )
 
-##  cat( "Added file for delete: ", file, "\n" )
+  debug( paste( "Added file for delete: ", file, "\n" ) )
 
   return( invisible( length( .sfOption$RESTOREFILES ) ) )
 }
@@ -50,10 +77,13 @@ deleteRestoreFiles <- function() {
     ## File names are absolute: just unlink all.
 ##    lapply( .sfOption$RESTOREFILES, unlink )
     for( file in .sfOption$RESTOREFILES ) {
-      if( unlink( file ) != 0 )
-        cat( "Unable to delete save/restore file:", file, "\n" )
-      else
-        cat( "Deleted save/restore file:", file, "\n" )
+      ## Does file exist?
+      if( file.exists( file ) ) {
+        if( unlink( file ) != 0 )
+          cat( "Unable to delete save/restore file:", file, "\n" )
+        else
+          cat( "Deleted save/restore file:", file, "\n" )
+      }
     }
 
     .sfOption$RESTOREFILES <- NULL

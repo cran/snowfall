@@ -1,6 +1,7 @@
-	VALUE
-SERVER	biom33.imbi.uni-freiburg.de
-PORT	9998
-TMPDIR	/var/tmp/R.cluster
-MAXNODES	64
-RESTDIR ~/.sfCluster/restore
+	 VALUE
+SERVER	 -
+PORT	 -
+TMPDIR	 -
+MAXNODES 64
+RESTDIR  -
+DUMMY    -
