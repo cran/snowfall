@@ -39,7 +39,8 @@ sfLibrary <- function( package,
   sfCheck();
   
   ## Generate (global) names list with all parameters.
-  .sfPars <<- list()
+#  setVar( ".sfPars", list() )
+  sfPars <- list()
 
   ## Help does not make sense.
 ##  if( !missing( help ) )
@@ -48,40 +49,44 @@ sfLibrary <- function( package,
   if( !missing( package ) ) {
     if( character.only ) {
       if( is.character( package ) )
-        .sfPars$package <<- package
+        sfPars$package <- package
       else
         stop( paste( "Package", package, "is no character string." ) )
     }
     else
-      .sfPars$package <<- deparse( substitute( package ) )
+      sfPars$package <- deparse( substitute( package ) )
   }
 
   ## package is now a string in any case.
-  .sfPars$character.only <<- TRUE
+  sfPars$character.only <- TRUE
 
-  .sfPars$pos            <<- pos
-  .sfPars$lib.loc        <<- lib.loc
-  .sfPars$warn.conflicts <<- warn.conflicts
-  .sfPars$keep.source    <<- keep.source
-  .sfPars$verbose        <<- verbose
+  sfPars$pos            <- pos
+  sfPars$lib.loc        <- lib.loc
+  sfPars$warn.conflicts <- warn.conflicts
+  sfPars$keep.source    <- keep.source
+  sfPars$verbose        <- verbose
 
   ## All libraries are loaded internally with logical.return.
-  .sfPars$logical.return <<- TRUE
+  sfPars$logical.return <- TRUE
   
   if( !missing( version ) )
-    .sfPars$version <<- version
+    sfPars$version <- version
 
   if( sfParallel() ) {
     ## On Nodes load location with absolute path.
-    if( !is.null( .sfPars$lib.loc ) )
-      .sfPars$lib.loc <<- absFilePath( .sfPars$lib.loc )
-    
+    if( !is.null( sfPars$lib.loc ) )
+      sfPars$lib.loc <- absFilePath( sfPars$lib.loc )
+
+    ## Export to namespace.
+    setVar( ".sfPars", sfPars )
+
     ## Weird enough ".sfPars" need to be exorted (else it would not be found
     ## on slave, although it is a parameter)
-    sfExport( ".sfPars", local=FALSE )
+    sfExport( ".sfPars", local=FALSE, namespace="snowfall" )
 
     ## Load libs using require as Exception on nodes doesn't help us here.
     ## @todo Check on correct execution via logical.return
+    ## @todo Exporting of .sfPars needed?
     result <- try( sfClusterEval( do.call( "library", .sfPars ) ) )
 ##    result <- try( sfClusterEval( library( .sfPars ) ) )
 
@@ -106,9 +111,10 @@ sfLibrary <- function( package,
     }
   }
 
-  result <- try( do.call( "library", .sfPars ) )
+  result <- try( do.call( "library", sfPars ) )
 
   ## Remove global var from cluster (and local).
+  ## Do before exception checks, as there might by a stop.
   sfRemove( ".sfPars" )
 
   if( inherits( result, "try-error" ) || !result ) {
@@ -169,7 +175,7 @@ sfSource <- function( file,
       }
       else {
         sfCat( paste( "Source", file, "loaded.\n" ) )
-        message( "Source", file, "loaded in cluster.\n" )
+        message( paste( "Source", file, "loaded in cluster.\n" ) )
       }
     }
 
@@ -207,17 +213,23 @@ sfSource <- function( file,
 ##
 ## PARAMETERS: ...   - Names or Variables
 ##             local - if TRUE, local vars will be exported
+##             namespace - also exports from namespace
 ##             debug - with local=TRUE, prints where vars are found
 ##             list  - List of variable names (like snows clusterExport)
 ## RETURN:     -
 ##****************************************************************************
-sfExport <- function( ..., list=NULL, local=TRUE, debug=FALSE ) {
+sfExport <- function( ..., list=NULL, local=TRUE, namespace=NULL,
+                      debug=FALSE, stopOnError=TRUE ) {
   sfCheck();
 
   ## Export is only done if running parallel, on master all vars are visible.
+  ## @TODO: Although all vars are visible, they are not surely in global env!
+  ##        => export to global env.
+  ##        Test if global object of this name exists. If yes: warning,
+  ##        if not: assign in global space.
   if( !sfParallel() ) {
-    message( "sfExport() ignored in sequential mode.\n" )
-    return( invisible( TRUE ) )
+    warning( "sfExport() writes to global environment in sequential mode.\n" )
+##    return( invisible( TRUE ) )
   }
 
   ## List of given names in dot arguments.
@@ -228,13 +240,48 @@ sfExport <- function( ..., list=NULL, local=TRUE, debug=FALSE ) {
   if( !is.null( list ) ) {
     ## Test from rm, see fetchNames for details.
     if( !length( list ) ||
-        !all( sapply( list, function(x) is.symbol(x) || is.character(x) ) ) )
-      stop( "list must contain names or character strings" )
+        !all( sapply( list, function(x) is.symbol(x) || is.character(x) ) ) ) {
+      if( stopOnError )
+        stop( "'list' must contain names or character strings" )
+      else {
+        warning( "Error in sfExport: 'list' must contain names or character strings" )
+        return( invisible( FALSE ) )
+      }
+    }
 
     names <- c( names, list )
   }
 
   for( name in names ) {
+    ## Also examine namespace (from snowfall package?). Only needed for internal
+    ## functions.
+    if( !is.null( namespace ) && is.character( namespace ) ) {
+      ## On some strange behavior, this only works with given error
+      ## function. Else errors on not found objects are not caught.
+      val <- tryCatch( getFromNamespace( name, namespace ),   ##, pos=-1
+                       error = function(x) { NULL } )
+
+      if( !is.null( val ) && !inherits( val, "try-error" ) ) {
+        res <- sfClusterCall( assign, name, val, env = globalenv(),
+                              stopOnError = FALSE )
+
+        ## Error on export?
+        if( is.null( res ) || !all( checkTryErrorAny( res ) ) ) {
+          if( stopOnError )
+            stop( paste( "Error exporting '", name, "': ",
+                         geterrmessage(), sep="" ) )
+          else {
+            warning( paste( "Error exporting '", name, "': ",
+                            geterrmessage(), sep="" ) )
+            return( invisible(FALSE) )
+          }
+        }
+
+        ## Skip local tests.
+        next
+      }
+    }
+    
     ## Check if exists before exporting.
     if( local ) {
       found <- FALSE
@@ -244,7 +291,7 @@ sfExport <- function( ..., list=NULL, local=TRUE, debug=FALSE ) {
       # sys.nframe() at least 1 at this point, globalenv() to check last.
       for( pframe in seq( 1, sys.nframe() ) ) {
         ## Var exists in this frame?
-        if( exists( name, inherit=FALSE, envir=sys.frame( -pframe ) ) ) {
+        if( exists( name, inherits=FALSE, envir=sys.frame( -pframe ) ) ) {
           found <- TRUE
 
           ## If debug Messages are wanted, print these (especially for local
@@ -259,6 +306,13 @@ sfExport <- function( ..., list=NULL, local=TRUE, debug=FALSE ) {
           }
 
           ## Export it.
+          ## Direct call to assign is far slower as a call to a function
+          ## doing it (however...)
+#          res <- sfClusterCall( simpleAssign, name, 
+#                                get( name,
+#                                     envir=sys.frame( -pframe ) ),
+#                                stopOnError = FALSE )
+          ## <= 1.70
           res <- sfClusterCall( assign, name,
                                 get( name,
                                      envir=sys.frame( -pframe ) ),
@@ -266,32 +320,64 @@ sfExport <- function( ..., list=NULL, local=TRUE, debug=FALSE ) {
                                 stopOnError = FALSE )
 
           ## Error on export?
-          if( is.null( res ) || !all( checkTryErrorAny( res ) ) )
-            stop( paste( "Error exporting '", name, "': ",
-                         geterrmessage(), sep="" ) )
-          
+          if( is.null( res ) || !all( checkTryErrorAny( res ) ) ) {
+            if( stopOnError )
+              stop( paste( "Error exporting '", name, "': ",
+                           geterrmessage(), sep="" ) )
+            else {
+              message( paste( "Error exporting '", name, "': ",
+                              geterrmessage(), sep="" ) )
+              return( invisible(FALSE) )
+            }
+          }
+
           break
         }
       }
 
       ## If variable to export is not found.
-      if( !found )
-        stop( paste( "Unknown/unfound variable ", name,
-                     " in export. (local=", local, ")", sep="" ) )
+      if( !found ) {
+        if( stopOnError )
+          stop( paste( "Unknown/unfound variable ", name,
+                       " in export. (local=", local, ")", sep="" ) )
+        else {
+          message( paste( "Unknown/unfound variable ", name,
+                          " in export. (local=", local, ")", sep="" ) )
+          return( invisible( FALSE ) )
+        }
+      }
     }
     ## Global export only.
     else {
       if( exists( name, inherit=FALSE, envir=globalenv() ) ) {
+#        res <- sfClusterCall( simpleAssign, name, 
+#                                get( name, inherit=FALSE,
+#                                     envir=globalenv() ),
+#                                stopOnError = FALSE )
+        ## <= 1.70
         res <- sfClusterCall( assign, name,
                               get( name, inherit=FALSE, envir=globalenv() ),
                               env = globalenv(), stopOnError = FALSE  )
 
-        if( is.null( res ) || !all( checkTryErrorAny( res ) ) )
-          stop( paste( "Error exporting global '", name, "': ",
-                       geterrmessage(), sep="" ) )
+        if( is.null( res ) || !all( checkTryErrorAny( res ) ) ) {
+          if( stopOnError )
+            stop( paste( "Error exporting global '", name, "': ",
+                         geterrmessage(), sep="" ) )
+          else {
+            warning( paste( "Error exporting global '", name, "': ",
+                            geterrmessage(), sep="" ) )
+            return( invisible( TRUE ) )
+          }
+        }
       }
-      else
-        stop( "Unknown variable ", name, " in export." )
+      else {
+        if( stopOnError )
+          stop( paste( "Unknown variable ", name, " in export." ) )
+        else {
+          warning( paste( "Unknown variable ", name, " in export." ) )
+          return( invisible( TRUE ) )
+        }
+      }
     }
   }
 
@@ -324,9 +410,14 @@ sfExportAll <- function( except=NULL, debug=FALSE ) {
       }
 
       ## Remove those elements which are included in except.
-      ## Not very elegant... However.
-      for( i in match( except, expList ) )
-        expList <- expList[-i]
+      ## Reverse matches for correct indices after removing of
+      ## single elements (start removing on right border).
+##      for( i in rev( match( except, expList ) ) )
+##        expList <- expList[-i]
+
+      ## Nicer version, proposal Greggory Jefferis (1.7.2)
+      ## na.omit is not a must here though.
+      expList <- expList[-na.omit(match(except, expList))]
     }
 
     ## Exporting mode with explicit global mode.
@@ -395,58 +486,66 @@ sfRemove <- function( ..., list=NULL, master=FALSE, debug=FALSE ) {
 ## PARAMETERS: [Vector/List Names of objects NOT to remove].
 ## RETURN:     Boolean Success (invisible)
 ##****************************************************************************
-sfRemoveAll <- function( except=NULL, debug=FALSE ) {
+sfRemoveAll <- function( except=NULL, debug=FALSE, hidden=TRUE ) {
   sfCheck();
 
   if( sfParallel() ) {
-    sfTmpAll <- sfClusterEval( ls() )
+    ## @TODO Also hidden vars?
+    if( hidden )
+      sfTmpAll <- sfClusterEval( ls( pos=globalenv(), all.names=TRUE ) )
+    else
+      sfTmpAll <- sfClusterEval( ls( pos=globalenv(), all.names=FALSE ) )
 
     if( length( sfTmpAll ) == 0 ) {
-      message( "sfRemoveAll: problems fetching variables from nodes...\n" )
+      message( "sfRemoveAll: problems fetching variables from nodes (or none existant)...\n" )
       return( invisible( FALSE ) )
     }
-    
-    ## Only take result from one node. We assume all nodes have exactly the
-    ## same variables in global space.
-    ## @todo: Test this
-    sfTmp <- sfTmpAll[[1]]
 
-    ## Now remove all variables which are listed in list except from
-    ## parameters.
-    if( !is.null( except ) ) {
-      if( is.list( except ) )
-        except <- unlist( except )
+    ## Only take result from one node.
+    ## We assume all nodes have exactly the same variables in global space.
+    ## It may be the case, that there are different variables on each node
+    ## (like a node-routine writes different vars on different cases).
+    ## Take that node with the most variables in object space.
+    ## @todo: Merge result lists from all nodes.
+    sfTmp <- sfTmpAll[[which.max(sapply(sfTmpAll,length))]]
 
-      if( !is.vector( except ) ) {
-        warning( "sfRemoveAll: except is not a vector.\n" )
-        return( invisible( FALSE ) )
-      }
-
-      ## Remove those elements which are included in except.
-      ## Not very elegant... However.
-      for( i in match( except, sfTmp ) )
-        sfTmp[i] <- NA     ## sfTmp <- sfTmp[-i] would fail for multiple removals
-
-      ## Remove NAs
-      sfTmp <- sort( sfTmp, na.last = NA )
-    }
-    
     ## If there are any variables on nodes.
     if( length( sfTmp ) > 0 ) {
-      ## Create a new global vector (temporary).
-      assign( ".sfTmpList", sfTmp, pos=globalenv() )
+      ## Now remove all variables which are listed in list except from
+      ## parameters.
+      if( !is.null( except ) ) {
+        if( is.list( except ) )
+          except <- unlist( except )
+
+        if( !is.vector( except ) ) {
+          warning( "sfRemoveAll: except is not a vector.\n" )
+          return( invisible( FALSE ) )
+        }
+
+        ## Remove those elements which are included in except.
+        ## Not very elegant... However.
+        ## Bugfix see sfExportAll
+        for( i in match( except, sfTmp ) )
+          sfTmp[i] <- NA     ## sfTmp <- sfTmp[-i] would fail for multiple removals
+
+        ## Remove NAs
+        sfTmp <- sort( sfTmp, na.last = NA )
+      }
+
+      ## Create a new namespace vector (temporary).
+#      setVar( ".sfTmpList", sfTmp )
 
       if( debug ) {
         message( "sfRemoveAll: Remove variables from nodes:" )
-        message( paste( .sfTmpList, collapse=", " ) )
+        message( paste( sfTmp, collapse=", " ) )
       }
 
       ## Export the list to cluster.
-      sfExport( ".sfTmpList" )
-
+      sfExport( "sfTmp", local=TRUE )
+     
       ## Delete all variables in the list.
-      sfClusterEval( rm( list=.sfTmpList, pos=globalenv() ) )
-      sfClusterEval( rm( ".sfTmpList", pos=globalenv() ) )
+      sfClusterEval( rm( list=sfTmp, pos=globalenv() ) )
+      sfClusterEval( rm( "sfTmp", pos=globalenv() ) )
     }
     else {
       message( "sfRemoveAll: no variables on nodes.\n" )
@@ -547,7 +646,7 @@ sfClusterApplySR <- function( x, fun,
 
   ## No R-file given?
   if( is.null( .sfOption$CURRENT ) )
-    .sfOption$CURRENT <<- 'DEFAULT'
+    setOption( "CURRENT", "DEFAULT" )
 
   ## Abs. file path
   file <- file.path( .sfOption$RESTDIR,
@@ -561,18 +660,14 @@ sfClusterApplySR <- function( x, fun,
   ## and check how many results are present in the file.
   ## If it seems that the results are ok, take them and continue at their end.
   if( file.exists( file ) && restore ) {
-    ## Temp global var for saving possible loading errors.
-    sfLoadError <- ""
-    assign( ".sfLoadError", sfLoadError, pos=globalenv() )
+    ## Temp global var for saving possible loading errors (in namespace).
+    setVar( ".sfLoadError", "" )
 
     ## Load in current environment.
-    tryCatch( load( file ), error=function( x ) { .sfLoadError <<- x } )
+    tryCatch( load( file ), error=function( x ) { setVar( ".sfLoadError", x ) } )
 
     if( .sfLoadError != "" )
       stop( paste( "Loading error:", .sfLoadError ) )
-
-    ## Remove temp var.
-    rm( .sfLoadError, envir=globalenv() )
 
     cat( "Restoring previous made results from file:", file, "\n" )
     errMsg <- "\nPlease remove file manually.\n"
@@ -691,14 +786,14 @@ sfClusterApplySR <- function( x, fun,
 ## R functionality on all nodes, too.
 ##
 ## PARAMETER: -
-## RETURN:    Int Amount of errors (0: everything is ok).
+## RETURN:    Int amount of errors (0: everything is ok).
 ##****************************************************************************
 sfTest <- function() {
   sfCheck();
 
   if( !sfParallel() ) {
     message( "Tests only work in parallel mode." )
-    return( FALSE )
+    return( invisible( FALSE ) )
   }
 
   ##***************************************************************************
@@ -709,10 +804,10 @@ sfTest <- function() {
       return( c( FALSE, "Result was NULL" ) )
 
     if( !is.list( result ) )
-      return( c( FALSE, "No proper return type." ) )
+      return( c( FALSE, "No proper return type (no list)." ) )
 
     if( length( result ) != sfCpus() )
-      return( c( FALSE, "No proper return type." ) )
+      return( c( FALSE, "No proper return type (wrong length)." ) )
 
     if( inherits( result, "try-error" ) )
       return( c( FALSE, "TRY-ERROR raised on result." ) )
@@ -749,19 +844,20 @@ sfTest <- function() {
       equal <- sort( unlist( equal ) )
     else
       equal <- sort( equal )
-    
+
     for( res in result ) {
-      res <- sort( res )
+##      res <- sort( res )
 
-      i <- 1
-
-      while( i <= length( res ) ) {
-        if( res[i] != equal[i] ) {
-          return( FALSE )
-        }
-
-        i <- i + 1
-      }
+      if( ( length( res ) != length( equal ) ) ||
+          ( length( which( sort( res ) == equal ) ) < length( equal ) ) )
+        return( FALSE )
+      
+##      i <- 1
+##     while( i <= length( res ) ) {
+##        if( res[i] != equal[i] )
+##          return( FALSE )
+##        i <- i + 1
+##      }
     }
 
     return( TRUE )
@@ -792,20 +888,22 @@ sfTest <- function() {
   ## Testing sfLibrary.
   ##***************************************************************************
   testLib <- function() {
-    ## Package is always installed.
-    if( !sfLibrary( boot, stopOnError=FALSE ) )
+    ## Package always be installed.
+    if( !sfLibrary( "boot", character.only=TRUE, stopOnError=FALSE ) )
       return( c( FALSE, "Unable to load library 'tools'" ) )
 
     ## calcium is a dataframe.
-    result <- sfClusterEval( as.matrix( calcium )[,2] )
+    result <- sfClusterEval( as.matrix( get('calcium') )[,2] )
 
     ## Compare if all nodes delivered the same data for variable "calcium"
+    ## get needed to avoid R CMD check warnings.
     for( res in result )
-      if( !checkVecCmp( res, as.matrix( calcium )[,2] ) )
-        return( c( FALSE, "Wrong data delivered. Something don't work here..." ) )
+      if( !checkVecCmp( res, as.matrix( get( "calcium" ) )[,2] ) )
+        return( c( FALSE, "Wrong data delivered..." ) )
 
     ## Load surely uninstalled package to test if lib call fail safely.
-    if( try( sfLibrary( "xxxyyyzzz", character.only=TRUE, stopOnError=FALSE ) ) )
+    if( try( sfLibrary( "xxxyyyzzz", character.only=TRUE, stopOnError=FALSE ),
+             silent=TRUE ) )
       return( c( FALSE, "Irregular return on loading inexisting library." ) )
 
     return( c( TRUE, "ok" ) )
@@ -817,6 +915,7 @@ sfTest <- function() {
   testSource <- function() {
     sfRemoveAll()
 
+    ## Find path of the installed snowfall Package.
     res <- NULL
     res <- try( .find.package( "snowfall" ) )
 
@@ -827,36 +926,39 @@ sfTest <- function() {
     if( is.null( res ) )
       return( c( FALSE, "Cannot locate package snowfall." ) )
 
-    res <- paste( res, "/data/test.R", sep="" )
+    res <- file.path( res, "data", "test.R" )
 
     cat( "PACKAGE...: ", res, "\n" )
 
     con <- file( res, "r", blocking=FALSE )
     a <- readLines( con, n=-1 )
-    cat( a, sep="\n" )
+    debug( "test.R content:" )
+    debug( a )
 
-    result <- try( sfSource( res ) )
-  
+    result <- sfSource( res, stopOnError=FALSE )
+
     if( inherits( result, "try-error" ) )
       return( c( FALSE, paste( "Exception: cannot source on slaves.",
                                geterrmessage() ) ) )
 
-    result <- try( sfClusterCall( f1 ) )
+    ## get to satisfy R CMD check
+    result <- sfClusterEval( get("f1")(), stopOnError=FALSE )
 
     resBasic <- checkResultBasic( result )
 
     if( resBasic[1] == FALSE )
-      return( retBasic )
+      return( resBasic )
 
     if( !checkAllEqual( result, 999 ) )
       return( c( FALSE, "Wrong results on sourced function f1." ) )
 
-    result <- try( sfClusterCall( f2, 99, 1  ) )
+    ## get to satisfy R CMD check
+    result <- sfClusterEval( get("f2")( 99, 1 ), stopOnError=FALSE )
 
     resBasic <- checkResultBasic( result )
 
     if( resBasic[1] == FALSE )
-      return( retBasic )
+      return( resBasic )
 
     if( !checkAllEqual( result, 100 ) )
       return( c( FALSE, "Wrong results on sourced function f2." ) )
@@ -874,7 +976,7 @@ sfTest <- function() {
     resBasic <- checkResultBasic( result )
 
     if( resBasic[1] == FALSE )
-      return( retBasic )
+      return( resBasic )
 
     if( !checkAllEqual( result, "abc" ) )
       return( c( FALSE, "Wrong results on paste." ) )
@@ -899,7 +1001,7 @@ sfTest <- function() {
     resBasic <- checkResultBasic( result )
 
     if( resBasic[1] == FALSE )
-      return( retBasic )
+      return( resBasic )
 
     if( !checkAllEqual( result, sum( sapply( 1:10, exp ) ) ) )
       return( c( FALSE, "Wrong results on sum." ) )
@@ -911,27 +1013,41 @@ sfTest <- function() {
   ## Testing Export Funktion
   ##***************************************************************************
   testExport <- function() {
-    sfRemoveAll()
+    ## Needed to have a clean comparison global env.
+    sfRemoveAll( hidden=TRUE )
 
-    vars <- sfClusterCall( ls, envir=globalenv() )
+    vars <- sfClusterEval( ls( all.names=TRUE, envir=globalenv() ) )
 
+    print( vars )
+    
     if( length( vars ) != 0 )
       if( !all( sapply( vars,
                         function( x ) return( length( x ) == 0 ) ) ) )
         return( c( FALSE, "sfRemoveAll() didn't kill everything" ) )
 
-    var1 <<- 99    # Global
-    var2 <<- 101
+    ## Setting global variable via assign, as <<- invokes warnings on
+    ## package check.
+    assign( "var1", 99, pos=globalenv() )
+    assign( "var2", 101, pos=globalenv() )
+#    var1 <<- 99    # Global
+#    var2 <<- 101
     var3 <-  103   # Local
     var4 <-  7
 
+    ## Setting var in namespace ("snowfall").
+    setVar( ".sfTestVar5", 77 )
+
+    if( getVar( ".sfTestVar5" ) != 77 )
+      return( c( FALSE, "Access to namespace failed." ) )
+    
     iTest <- function() {
       var3 <- 88
 
       res <- FALSE
 
-      res <- sfExport( "var1", "var2",
-                       list=list( "var3", "var4" ), local=TRUE )
+      res <- sfExport( "var1", "var2", ".sfTestVar5",
+                       list=list( "var3", "var4" ),
+                       local=TRUE, namespace="snowfall", stopOnError=FALSE )
 
       if( inherits( res, "try-error" ) )
         return( c( FALSE, "Exception on export." ) )
@@ -939,18 +1055,28 @@ sfTest <- function() {
       if( !res )
         return( c( FALSE, "Unexpected Exception on export." ) )
 
-      if( !checkAllEqualList( sfClusterCall( ls, envir=globalenv() ),
-                              list( "var1", "var3", "var2", "var4" ) ) )
+      print( "GLOBALENV..." )
+      print( sfClusterCall( ls, envir=globalenv() ) )
+      
+      if( !checkAllEqualList( sfClusterCall( ls, all.names=TRUE,
+                                             envir=globalenv() ),
+                              c( "var1", "var3", "var2", "var4",
+                                 ".sfTestVar5" ) ) )
         return( c( FALSE, "Not all vars exported." ) )
 
-      if( !checkAllEqual( sfClusterEval( var1 ), 99 ) ||
-          !checkAllEqual( sfClusterEval( var2 ), 101 ) )
+      ## get to satisfy R CMD check
+      if( !checkAllEqual( sfClusterEval( get("var1") ), 99 ) ||
+          !checkAllEqual( sfClusterEval( get("var2") ), 101 ) )
         return( c( FALSE, "Error exporting global var." ) )
 
-      if( !checkAllEqual( sfClusterEval( var3 ), 88 ) ||
-          !checkAllEqual( sfClusterEval( var4 ), 7 ) )
+      ## get to satisfy R CMD check
+      if( !checkAllEqual( sfClusterEval( get("var3") ), 88 ) ||
+          !checkAllEqual( sfClusterEval( get("var4") ), 7 ) )
         return( c( FALSE, "Error exporting local var." ) )
 
+      if( !checkAllEqual( sfClusterEval( get(".sfTestVar5") ), 77 ) )
+        return( c( FALSE, "Error exporting namespace var." ) )
+      
       ## Test removeAll with Exception-List
       sfRemoveAll( except=list( "var2", "var3" ) )
 
@@ -990,8 +1116,8 @@ sfTest <- function() {
     # Test 1 on Eval
     result <- sfLapply( seq( 1, ncol( mat ) ), rSum, mat )
 
-    cat( "FINISHED...\n" )
-    print( result )
+##    cat( "FINISHED...\n" )
+##    print( result )
     
     if( !checkVecCmp( unlist( result ), cmp ) )
       return( c( FALSE, "Wrong results on sfLapply." ) )

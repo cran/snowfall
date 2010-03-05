@@ -68,11 +68,11 @@ Jochen Knaus <jo@imbi.uni-freiburg.de>,
 }
 \keyword{package}
 \seealso{
-  Snowfall Initialisation: \code{\link[snowfall:snowfall-init]{snowfall-init}}\cr
-  Snowfall Calculation: \code{\link[snowfall:snowfall-calculation]{snowfall-calculation}}\cr
-  Snowfall Tools: \code{\link[snowfall:snowfall-tools]{snowfall-tools}}\cr
+  Snowfall Initialisation: \code{\link{snowfall-init}}\cr
+  Snowfall Calculation: \code{\link{snowfall-calculation}}\cr
+  Snowfall Tools: \code{\link{snowfall-tools}}\cr
 
-  Optional links to other man pages, e.g. \code{\link[snow:snow-package]{snow}}
+  Optional links to other man pages, e.g. \code{\link[snow]{snow-cluster}}
 }
 \examples{
 \dontrun{
@@ -80,7 +80,7 @@ Jochen Knaus <jo@imbi.uni-freiburg.de>,
   ##sfInit()
 
   # Init Snowfall with explicit settings.
-  sfInit( parallel=TRUE, nodes=2 )
+  sfInit( parallel=TRUE, cpus=2 )
 
   if( sfParallel() )
     cat( "Running in parallel mode on", sfCpus(), "nodes.\n" )

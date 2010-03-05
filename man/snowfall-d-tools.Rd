@@ -30,11 +30,11 @@ sfLibrary( package, pos=2,
            verbose=getOption("verbose"), version,
            stopOnError=TRUE )
 sfSource( file, encoding = getOption("encoding"), stopOnError = TRUE )
-sfExport( ..., list=NULL, local=TRUE, debug=FALSE )
+sfExport( ..., list=NULL, local=TRUE, namespace=NULL, debug=FALSE, stopOnError = TRUE )
 sfExportAll( except=NULL, debug=FALSE )
 
 sfRemove( ..., list=NULL, master=FALSE, debug=FALSE )
-sfRemoveAll( except=NULL, debug=FALSE )
+sfRemoveAll( except=NULL, debug=FALSE, hidden=TRUE )
 
 sfCat( ..., sep=" ", master=TRUE )
 
@@ -55,10 +55,14 @@ sfTest()
   \item{list}{character vector with names of objects to export}
   \item{local}{a logical indicating if variables should taken from
     local scope(s) or only from global.}
+  \item{namespace}{a character given a namespace where to search for the
+    object.}
   \item{debug}{a logical indicating extended information is given upon
     action to be done (e.g. print exported variables, print context of
     local variables etc.).}
-  \item{except}{character vector with names of objects not to export/remove}
+  \item{except}{character vector with names of objects not to
+    export/remove}
+  \item{hidden}{also remove hidden names (starting with a dot)?}
   \item{sep}{a character string separating elements in x}
   \item{master}{a logical indicating if executed on master as well}
   \item{...}{additional arguments to pass to standard function}
@@ -175,7 +179,7 @@ development).
 \keyword{package}
 \seealso{
 See \pkg{snow} documentation for details on wrapper-commands:
-\code{\link[snow:snow-package]{snow}}
+\code{\link[snow]{snow-parallel}}
 }
 \examples{
 \dontrun{

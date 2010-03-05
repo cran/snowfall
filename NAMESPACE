@@ -6,6 +6,7 @@ export(
         "sfNodes",
         "sfCpus",
         "sfType",
+        "sfIsRunning",                     ## New 1.83
         "sfGetCluster",
         "sfSession",
         "sfSocketHosts",                   ## New 1.6

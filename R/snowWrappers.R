@@ -32,7 +32,7 @@ sfClusterCall <- function( fun, ..., stopOnError=TRUE ) {
     if( stopOnError )
       stop( "No function or not defined object in sfClusterCall" )
     else {
-      message( "No function or not defined object in sfClusterCall" )
+      warning( "No function or not defined object in sfClusterCall" )
       return( NULL )
     }
   }
@@ -56,6 +56,11 @@ sfClusterCall <- function( fun, ..., stopOnError=TRUE ) {
 
     ## Check if snow throw an exception on any of the slaves.
     if( !all( checkTryErrorAny( result ) ) ) {
+      errorsTxt <- sapply( which( inherits( result, "try-error" ) ), function(x) result[[x]] )
+
+      message( "EXCEPTION INFOS:" )
+      message( paste( errorsTxt, collapse="\n" ) )
+      
       if( stopOnError ) {
         stop( paste( "Error in sfClusterCall (catched TRY-ERROR).\n",
                      "Call from: ", as.character( sys.call( -1 ) ) ) )
@@ -69,6 +74,7 @@ sfClusterCall <- function( fun, ..., stopOnError=TRUE ) {
 
     return( result )
   }
+  ## Sequential mode.
   else
     return( do.call( fun, list( ... ) ) )
 }

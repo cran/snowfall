@@ -1,5 +1,8 @@
 \name{snowfall-calculation}
 
+%% Separate alias for cross-references.
+\alias{snowfall-calculation}
+
 \alias{sfClusterMap}
 
 \alias{sfClusterApply}
@@ -97,7 +100,7 @@ sfRestore()
 \keyword{package}
 \seealso{
 See snow documentation for details on commands:
-\code{\link[snow:snow-package]{snow}}
+\code{\link[snow]{snow-parallel}}
 }
 \examples{
 \dontrun{

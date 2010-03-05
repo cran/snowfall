@@ -1,4 +1,6 @@
 \name{snowfall-init}
+\alias{snowfall-init}
+
 \alias{sfInit}
 \alias{sfStop}
 
@@ -6,6 +8,7 @@
 \alias{sfCpus}
 \alias{sfNodes}
 \alias{sfType}
+\alias{sfIsRunning}
 \alias{sfSocketHosts}
 \alias{sfGetCluster}
 \alias{sfSession}
@@ -13,10 +16,11 @@
 
 \title{Initialisation of cluster usage}
 \usage{
-sfInit( parallel=NULL, cpus=NULL, type=NULL, socketHosts=NULL, restore=NULL, slaveOutfile=NULL, nostart=FALSE )
+sfInit( parallel=NULL, cpus=NULL, type=NULL, socketHosts=NULL, restore=NULL, slaveOutfile=NULL, nostart=FALSE, useRscript=FALSE )
 sfStop( nostop=FALSE )
 
 sfParallel()
+sfIsRunning()
 sfCpus()
 sfNodes()
 sfGetCluster()
@@ -44,6 +48,7 @@ sfSetMaxCPUs( number=32 )
     output (Unix: \code{/dev/null}, Windows: \code{:nul}). If
     using sfCluster this argument has no function, as slave logs are
     defined using sfCluster.}
+  \item{useRscript}{Change startup behavior (snow>0.3 needed): use shell scripts or R-script for startup (R-scripts beeing the new variant, but not working with sfCluster.}
   \item{nostop}{Same as noStart for ending.}
   \item{number}{Amount of maximum CPUs useable.}
 }
@@ -65,10 +70,17 @@ sfSetMaxCPUs( number=32 )
 
   Note that you should call \code{sfInit} before using any other function
   from \pkg{snowfall}, with the only exception \code{sfSetMaxCPUs}.
-  If you don't call \code{sfInit} first, on calling an \pkg{snowfall}
+  If you do not call \code{sfInit} first, on calling any \pkg{snowfall}
   function \code{sfInit} is called without any parameters, which is
   equal to sequential mode in \pkg{snowfall} only mode or the settings from
   sfCluster if used with sfCluster.
+
+  This also means, you cannot check if \code{sfInit} was called from
+  within your own program, as any call to a function will initialize
+  again. Therefore the function \code{sfIsRunning} gives you a logical
+  if a cluster is running. Please note: this will not call \code{sfInit}
+  and it also returns true if a previous running cluster was stopped via
+  \code{sfStop} in the meantime.
 
   If you use \pkg{snowfall} in a package argument \code{nostart} is very
   handy if mainprogram uses \pkg{snowfall} as well. If set, cluster
@@ -154,7 +166,7 @@ sfSetMaxCPUs( number=32 )
 \keyword{package}
 \seealso{
 See snow documentation for details on commands:
-\code{\link[snow:snow-package]{snow}}
+\code{link[snow]{snow-cluster}}
 }
 \examples{
 \dontrun{
@@ -172,13 +184,13 @@ See snow documentation for details on commands:
   # using sfCluster.
   # Uses Socketcluster (Default) - which can also be stated
   # using type="SOCK".
-  sfInit( parallel=TRUE, nodes=4 )
+  sfInit( parallel=TRUE, cpus=4 )
   stopifnot( sfCpus() == 4 )
   stopifnot( sfParallel() == TRUE )
   sfStop()
 
   # Run parallel mode (socket) with 4 workers on 3 specific machines.
-  sfInit( parallel=TRUE, nodes=4, type="SOCK",
+  sfInit( parallel=TRUE, cpus=4, type="SOCK",
           socketHosts=c( "biom7", "biom7", "biom11", "biom12" ) )
   stopifnot( sfCpus() == 4 )
   stopifnot( sfParallel() == TRUE )
@@ -186,11 +198,11 @@ See snow documentation for details on commands:
 
   # Hook into MPI cluster.
   # Note: you can use any kind MPI cluster Rmpi supports.
-  sfInit( parallel=TRUE, nodes=4, type="MPI" )
+  sfInit( parallel=TRUE, cpus=4, type="MPI" )
   sfStop()
 
   # Hook into PVM cluster.
-  sfInit( parallel=TRUE, nodes=4, type="PVM" )
+  sfInit( parallel=TRUE, cpus=4, type="PVM" )
   sfStop()
 
   # Run in sfCluster-mode: settings are taken from commandline:

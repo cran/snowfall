@@ -3,6 +3,67 @@
 ##*****************************************************************************
 
 ##*****************************************************************************
+## Helpers for managing the internal variables in the package namespace without
+## awake the R CMD check for later R versions (which basically blaims many
+## global assignings).
+##
+## The given solution has an advantage: only writing is affected. Reading of the
+## objects can remain the same (thanks to Uwe Ligges for the tipp):
+##   reading:  .sfOption$parallel
+##   writing:  setOption("parallel", TRUE)
+##*****************************************************************************
+
+##*****************************************************************************
+## Set an option in the snowfall option list.
+## (Basically this is the setting of a list entry).
+## key - character: object name
+## val - object (everything is allowed, even NULL)
+##*****************************************************************************
+setOption <- function( key=NULL, val=NULL ) {
+  if( !is.null(key) && is.character( key ) ) {
+    option <- getVar( ".sfOption" )   ## Get from NS
+    option[[key]] <- val
+    setVar( ".sfOption", option )     ## Write to NS
+
+    return( invisible( TRUE ) )
+  }
+
+  stop( "key or val is NULL or key no string." )
+}
+
+##*****************************************************************************
+## Get a specific variable from the snowfall namespace.
+## var - character: object name
+##*****************************************************************************
+getVar <- function( var=NULL ) {
+  if( !is.null( var ) && is.character( var ) ) {
+    tmp <- try( getFromNamespace( var, "snowfall" ) )
+
+    if( inherits( tmp, "try-error" ) )
+      stop( paste( "Object", var, "not found in package" ) )
+
+    return( tmp )
+  }
+
+  stop( "var is NULL or not a string." )
+}
+
+##*****************************************************************************
+## Write a specific variable to the snowfall namespace.
+## var - character: object name
+## arg - object (NULL allowed)
+##*****************************************************************************
+setVar <- function( var=NULL, arg=NULL ) {
+  if( !is.null( var ) && is.character( var ) ) {
+    assignInNamespace( var, arg, "snowfall" )
+
+    return( invisible( TRUE ) )
+  }
+
+  stop( "var is NULL or no character" );
+}
+
+##*****************************************************************************
 ## Replaces the tilde operator in file/directory names with the system
 ## depending counterpart.
 ## Used for configuration files mainly.
@@ -60,9 +121,9 @@ addRestoreFile <- function( file=NULL ) {
     if( is.vector( .sfOption$RESTOREFILES ) )
       ## Check if file is already in the list. If yes: no add.
       if( length( grep( file, .sfOption$RESTOREFILES ) ) == 0 )
-        .sfOption$RESTOREFILES <<- c( .sfOption$RESTOREFILES, file )
+        setOption( "RESTOREFILES", c( .sfOption$RESTOREFILES, file ) )
     else
-      .sfOption$RESTOREFILES <<- c( file )
+      setOption( "RESTOREFILES", c( file ) )
 
   debug( paste( "Added file for delete: ", file, "\n" ) )
 
@@ -86,7 +147,7 @@ deleteRestoreFiles <- function() {
       }
     }
 
-    .sfOption$RESTOREFILES <- NULL
+    setOption( "RESTOREFILES", NULL )
   }
 }
 
@@ -96,7 +157,7 @@ deleteRestoreFiles <- function() {
 ##***************************************************************************
 checkTryErrorAny <- function( res ) {
   return( sapply( res,
-                  function( x ) {                   
+                  function( x ) {
                     if( inherits( x, "try-error" ) )
                       return( FALSE )
                     else
@@ -149,11 +210,9 @@ fetchNames <- function( ... ) {
       !all( sapply( dots, function(x) is.symbol(x) || is.character(x) ) ) )
     stop( "... must contain names or character strings in function ",
           as.character( sys.call( -1 ) ) )
+  ## end ripp.
 
-  names <- sapply(dots, as.character)
-  ## End ripp.
-
-  return( names )
+  return( sapply(dots, as.character) )
 }
 
 ##***************************************************************************
@@ -182,10 +241,38 @@ getNamedArguments <- function( ... ) {
 absFilePath <- function( file ) {
   ## If not starting with separator, path is most likely relative.
   ## Make it absolute then.
-  if( substr( file, 0, 1 ) != .Platform$file.sep )
-    file <- file.path( getwd(), file )
+  ## On Windows absolute path can contain drive chars.
+  if( .Platform$OS.type == "windows" ) {
+    if( ( substr( file, 1, 1 ) != .Platform$file.sep ) &&
+        ( substr( file, 2, 2 ) != ":" ) )
+      file <- file.path( getwd(), file )
+  }
+  else
+    if( substr( file, 1, 1 ) != .Platform$file.sep )
+      file <- file.path( getwd(), file )
 
   return( file )
+}
+
+simpleAssign <- function( name=NULL, value ) {
+  message( paste( "simpleAssign called: ", name, "VAL:", value ) )
+
+  if( is.null( name ) || !is.character( name ) || ( nchar( name ) == 0 ) ) {
+    warning( "NULL assign on simpleAssign()" )
+    return( NULL )
+  }
+  else {
+    assign( name, value, env = globalenv() )
+    return( NULL )
+  }
+}
+
+##***************************************************************************
+## Internal debug printer (globally disable using package variable DEBUG).
+##***************************************************************************
+debug <- function( txt='' ) {
+  if( DEBUG )
+    message( txt )
 }
 
 .onLoad <- function( lib, pkg ) {
