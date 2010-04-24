@@ -1,3 +1,7 @@
+Changes in snowfall 1.84
+===========================
+ o Bugfix sfExport: if exporting a NULL value, no error is raised.
+
 Changes in snowfall 1.83
 ===========================
  o sfIsRunning: new function giving a logical is sfInit() was called or

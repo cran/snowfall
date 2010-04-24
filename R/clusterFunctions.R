@@ -314,13 +314,14 @@ sfExport <- function( ..., list=NULL, local=TRUE, namespace=NULL,
 #                                stopOnError = FALSE )
           ## <= 1.70
           res <- sfClusterCall( assign, name,
-                                get( name,
-                                     envir=sys.frame( -pframe ) ),
+                                get( name, envir=sys.frame( -pframe ) ),
                                 env = globalenv(),
                                 stopOnError = FALSE )
 
           ## Error on export?
-          if( is.null( res ) || !all( checkTryErrorAny( res ) ) ) {
+          ## 1.84: object can be null if source variable was null, too.
+          if( ( is.null( res ) && !is.null( get( name, envir=sys.frame( -pframe ) ) ) )
+              || !all( checkTryErrorAny( res ) ) ) {
             if( stopOnError )
               stop( paste( "Error exporting '", name, "': ",
                            geterrmessage(), sep="" ) )
