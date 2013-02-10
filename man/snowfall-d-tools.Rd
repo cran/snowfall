@@ -26,7 +26,7 @@
 sfLibrary( package, pos=2,
            lib.loc=NULL, character.only=FALSE,
            warn.conflicts=TRUE,
-           keep.source=getOption("keep.source.pkgs"),
+           keep.source=NULL,
            verbose=getOption("verbose"), version,
            stopOnError=TRUE )
 sfSource( file, encoding = getOption("encoding"), stopOnError = TRUE )
@@ -69,7 +69,9 @@ sfTest()
   \item{package}{name of the package. Check \code{library} for details.}
   \item{pos}{position in search path to load library.}
   \item{warn.conflicts}{warn on conflicts (see "library").}
-  \item{keep.source}{see "library".}
+  \item{keep.source}{see "library". Please note: this argument has only
+    effect on R-2.x, starting with R-3.0 it will only be a placeholder
+    for backward compatibility.}
   \item{verbose}{enable verbose messages.}
   \item{version}{version of library to load (see "library").}
   \item{encoding}{encoding of library to load (see "library").}

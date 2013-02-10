@@ -58,8 +58,11 @@ sfInit <- function( parallel=NULL,
   ## Flag for detection of reconnect (means: non-first calls to sfInit())
   reconnect <- FALSE
 
+  ## Get rid of that stupid data load to global env.
+  initEnv <- new.env()
+  
   ## Saves users from many own if-clauses probably.
-  if( nostart ) return( TRUE );
+  if( nostart ) return( TRUE )
 
   ## Are options setted?
   if( length( .sfOption ) == 0 ) {
@@ -74,7 +77,7 @@ sfInit <- function( parallel=NULL,
     setOption( "init", FALSE )
 
     ## Load configuration file: delivered with package and changeable by user.
-    data( "config", package="snowfall" )
+    data( "config", package="snowfall", envir=initEnv )
     configM <- as.matrix( t( config ) )
     config  <- as.list( configM )
     names( config ) <- dimnames( configM )[[2]]
@@ -128,7 +131,8 @@ sfInit <- function( parallel=NULL,
       setOption( "RESTDIR", file.path( Sys.getenv( "HOME" ), ".sfCluster", "restore" ) )
 
     ## Remove config (as data() writes it as global variable).
-    rm( config, pos=globalenv() )
+    rm( config, envir=initEnv )
+    #pos=globalenv() )
   }
   ## If .sfOption exists, sfInit() was called before: restart.
   ## (sfCluster should be able to handle this - although slaves are iterated and

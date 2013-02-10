@@ -174,9 +174,10 @@ checkFunction <- function( fun, stopOnError=TRUE ) {
 
   state <- FALSE
 
-  try( if( !exists( as.character( substitute( fun ) ), inherit=TRUE ) ||
+  ## 1.84-3 typo
+  try( if( !exists( as.character( substitute( fun ) ), inherits=TRUE ) ||
           !is.function( fun ) ||
-          is.null( get( as.character( substitute( fun ) ), inherit=TRUE ) ) ||
+          is.null( get( as.character( substitute( fun ) ), inherits=TRUE ) ) ||
           !is.function( fun ) ) state <- TRUE )
   
   if( !state ) {
@@ -262,7 +263,12 @@ simpleAssign <- function( name=NULL, value ) {
     return( NULL )
   }
   else {
-    assign( name, value, env = globalenv() )
+    ## 1.84-4
+    ## Problem: it is required to write to global env!
+    ## Comment censored :)
+#    assign( name, value, envir = globalenv() )
+    assign( name, value, pos=sys.nframe() )
+
     return( NULL )
   }
 }
