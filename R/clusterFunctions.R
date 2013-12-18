@@ -936,7 +936,7 @@ sfTest <- function() {
 
     ## Find path of the installed snowfall Package.
     res <- NULL
-    res <- try( find.package( "snowfall" ) )
+    res <- try( find.package( "snowfall" ) )   ## CHG 131712 from .find.package
 
     if( inherits( res, "try-error" ) )
       return( c( FALSE, paste( "Exception: cannot locate package snowfall.",

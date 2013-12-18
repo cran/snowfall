@@ -16,7 +16,8 @@
 
 \title{Initialisation of cluster usage}
 \usage{
-sfInit( parallel=NULL, cpus=NULL, type=NULL, socketHosts=NULL, restore=NULL, slaveOutfile=NULL, nostart=FALSE, useRscript=FALSE )
+sfInit( parallel=NULL, cpus=NULL, type=NULL, socketHosts=NULL, restore=NULL,
+        slaveOutfile=NULL, nostart=FALSE, useRscript=FALSE )
 sfStop( nostop=FALSE )
 
 sfParallel()

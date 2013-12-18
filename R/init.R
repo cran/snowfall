@@ -200,13 +200,14 @@ sfInit <- function( parallel=NULL,
     }
     
     ## In any parallel mode, load snow if needed.
-    if( !require( snow ) ) {
-      message( paste( "Failed to load library 'snow' required for parallel mode.\n",
-                      "Switching to sequential mode (1 cpu only)!." ) );
+    ## CHG 131217: not needed because of package depends.
+   ## if( !require( snow ) ) {
+   ##   message( paste( "Failed to load library 'snow' required for parallel mode.\n",
+   ##                   "Switching to sequential mode (1 cpu only)!." ) );
 
-      ## Fallback to sequential mode.
-      return( sfInit( parallel=FALSE ) )
-    }
+   ##   ## Fallback to sequential mode.
+   ##   return( sfInit( parallel=FALSE ) )
+   ## }
 
     ## Chg. 1.62
     ## Temporary file for output.

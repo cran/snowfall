@@ -20,22 +20,23 @@
 \begin{titlepage}
 \title{Developing parallel programs using snowfall}
 \author{Jochen Knaus}
-\date{2008-10-07}
+\date{2010-03-04}
 \maketitle
 
 \begin{abstract}
 \texttt{snowfall} is an R package for easier parallel programming
 using clusters.
-Basically it is build upon the package \texttt{snow} using it's
+Basically it is build upon the package \texttt{snow} \cite{TIERNEY08} using it's
 network and cluter abilities and therefore offering use of
-Socket, MPI, PVM and NetWorkSpaces support.
+Socket, MPI, PVM and NetWorkSpaces support and can be seen as an
+"usability wrapper".
 
 \texttt{snow} functions can used from within \texttt{snowfall} as well.
 
 \texttt{snowfall} offers additional support for implicit sequential
 execution (e.g. for distributing packages using optional parallel
-support), additional calculation functions and many functions for
-more comfortable programming.
+support), additional calculation functions, extended error handling,
+and many functions for more comfortable programming.
 
 Also, \texttt{snowfall} can be configured via command line
 arguments, making the change of cluster settings easier without
@@ -51,6 +52,13 @@ builds an extra layer of usability on the top of \texttt{snow}.
 It is not thought as an replacement for \texttt{snow}, but an addition for
 inexperienced users or those who seek more comfort using parallel
 computing and R.
+
+A further introduction to snowfall is published in the R-Journal
+\cite{Knau:Porz:Bind:Schw:easi:2009}.
+
+For additional documentation, help and examples please visit our website:
+\url{http://www.imbi.uni-freiburg.de/parallel}
+
 \end{abstract}
 \end{titlepage}
 
@@ -60,10 +68,10 @@ computing and R.
 \section{snowfall}
 \subsection{Getting started}
 \subsubsection{Requirements for sequential execution}
-Basically \texttt{snowfall} is able to run without any external
+Basically, \texttt{snowfall} is able to run without any external
 library. In this case, it is not possible to use parallel execution
 of commands. All potential calls to parallel functions will be
-executed sequential.
+executed sequentially.
 
 Programs written in sequential use with \texttt{snowfall} calls
 can be running in parallel without any code change.
@@ -71,8 +79,12 @@ can be running in parallel without any code change.
 \subsubsection{Requirements for parallel execution: Basics}
 If you just want to use parallel computing on your local PC or
 laptop you are just fine with basically installation of
-snowfall and snow. You can use then a so called socket cluster,
+\texttt{snowfall} and \texttt{snow}.
+You can use then a so called socket cluster,
 for which no additional software needs to be installed.
+
+If you are just wanting to use parallel programming on your
+local workstation, PC or laptop, you are fine.
 
 \subsubsection{Requirements for parallel execution: MPI}
 You have a running MPI cluster (OpenMPI or any other kind of
@@ -124,7 +136,7 @@ For further details upon LAM/MPI setup, see \cite{burns94:_lam}.
 
 Note: All parallel programs you start are running in this cluster.
 If your program requests 100 CPUs on your private dual-core machine,
-you get that amount and 100 R processes are spawn, independant
+you get that amount and 100 R processes are spawn, independent
 or available ressources (memory, cpus).
 
 For workgroups or larger clusters, management solutions like
@@ -153,7 +165,7 @@ following scheme:
 Initialization using \texttt{sfInit()}. Set up the cluster (if needed)
 and the internal functions. \texttt{sfInit} must be called before
 using any function of the \texttt{snowfall} package.\footnote{The only
-exception is the function \texttt{sfSetMaxCPUs()}, which raise or limit
+exception is the function \texttt{sfSetMaxCPUs()}, which raises or limits
 the configured maximum CPU count.}
 \item Export needed variables/objects to all slaves.
 \item
@@ -166,7 +178,7 @@ End parallel execution using \texttt{sfStop()}.
 The initialisation differs if you use \texttt{snowfall} alone or with
 the management tool \emph{sfCluster}. In this chapter we only cover a
 standalone usage of \texttt{snowfall}.
-For usage with \emph{sfCluster}, see XXX.
+For usage with \emph{sfCluster}, see chapter 2.
 
 If you are firm on using the R package \texttt{snow}, starting with
 or porting your program to
@@ -174,22 +186,33 @@ or porting your program to
 
 The complete initialisation is done with a single call to
 \texttt{sfInit()}.
-Arguments are \texttt{parallel} and \texttt{cpus}, giving the running
-mode (parallel execution or sequential execution).
+The main arguments are \texttt{parallel}, \texttt{cpus} and \texttt{type},
+giving the running mode (parallel execution or sequential execution),
+the amount of CPUs if executing in parallel mode and the type of the
+underlying cluster.
 If running in sequential mode, \texttt{cpus} is ignored (and set
 to one).
+Without a given \texttt{type} a socket cluster is started, which does not
+need any further software installed and therefore most likely runs anywhere
+immidiately. This is the desired choice for executing on a laptop or single
+multicore machine, too. Please note, that on Windows an installed Personal
+Firewall may alert the network access, please allow this.
 
-On calling \texttt{sfInit( parallel=TRUE )} without a running LAM
-cluster (but LAM installed), a \emph{local} cluster will be started,
-which only contains your local machine. This can be handy on single
-multi-core machines. But note you \texttt{sfStop} will not shutdown
-this cluster, so you have to stop it yourself manually (if wished).
+%On calling \texttt{sfInit( parallel=TRUE )} without a running LAM
+%cluster (but LAM installed), a \emph{local} cluster will be started,
+%which only contains your local machine. This can be handy on single
+%multi-core machines. But note you \texttt{sfStop} will not shutdown
+%this cluster, so you have to stop it yourself manually (if wished).
 
 Sequential mode can be useful for developing the program, probably
 on a single core laptop without installed cluster or running Windows
 operating system. Also sequential mode is needed to deploy a package
 using \texttt{snowfall} safely,
 where you cannot assume a user have an useable cluster installed.
+
+Other arguments for \texttt{sfCluster} are \texttt{restore}, \texttt{socketHosts},
+\texttt{slaveOutfile} and \texttt{nostart}. See package help for
+description.
 
 If the initialisation fails, probably because of missing base libraries
 \texttt{Rmpi} and \texttt{snow},
@@ -231,8 +254,8 @@ behavior would be very nasty on package deployment.
 
 \subsection{Writing parallel programs with snowfall}
 \subsubsection{General notes and simple example}
-If you detected parts of your program which can be parallised (loops
-etc) it is in most cases an fast step to give them a parallel run.
+If you detected parts of your program which can be parallelised (loops
+etc) it is in most cases a fast step to give them a parallel run.
 
 First, rewrite them using Rs list operators (lapply, apply) instead of
 loops (if they are not yet calculated by list operators).
@@ -396,12 +419,12 @@ On the commandline there are the following parameters:
 
 \begin{tabular}{lp{10cm}}
 parallel & Switch to parallel execution. Default is sequential execution \\
-cpus=X & Amount of CPUs wanted. Without --parallel, a value $X > 1$ switch to parallel execution. \\
+cpus=X & Amount of CPUs wanted. Without {-}{-}parallel, a value $X > 1$ switch to parallel execution. \\
 type=X & Type of cluster. Allowed values are SOCK, MPI, PVM and NWS. \\
 session=X & Session number. snowfall logfiles contain number, but only needed with sfCluster. \\
-restoreSR & Enables restoring of peviously saved results from sfClusterApplySR calls. \\
-hosts=X & List of hosts for Socket (SOCK) or NetWorkSpaces (NWS) clusters. Entries are comma seperated. Any entry may contain colon seperated value for the amount of processors on this machine. Example: \texttt{--hosts=machine1:4,machine2,123.123.12.13:2} (this spawns 4 workers on machine1, one on machine2 and two on 123.123.12.13). \\
---tmpdir=X & Specify temporary directory for logfiles and R-output. \\
+restoreSR & Enables restoring of previously saved results from \texttt{sfClusterApplySR} calls. \\
+hosts=X & List of hosts for Socket (SOCK) or NetWorkSpaces (NWS) clusters. Entries are comma seperated. Any entry may contain colon seperated value for the amount of processors on this machine. Example: \texttt{{-}{-}hosts=machine1:4,machine2,123.123.12.13:2} (this spawns 4 workers on machine1, one on machine2 and two on 123.123.12.13). \\
+tmpdir=X & Specify temporary directory for logfiles and R-output. \\
 \end{tabular} 
 
 For using these arguments, just add these after an \texttt{--args} on the commandline (which
@@ -454,7 +477,7 @@ Also, execution is observed and if problems arise, the cluster is shut down.
 a special batch mode with visual logfile and process-displaying.
 
 For further details about installation, administration and configuration of
-\emph{sfCluster}, please visit \url{http://www.imbi.uni-freiburg.de/XXX} or
+\emph{sfCluster}, please visit \url{http://www.imbi.uni-freiburg.de/parallel} or
 run \texttt{sfCluster {-}{-}help} if you installed it yet.
 
 \subsection{Starting R using \emph{sfCluster}}
@@ -541,17 +564,77 @@ will be visible (like non correct working libraries).
 Do real runs using silent batch mode (start using options
 \texttt{-b {-}{-}quiet}). Probably you want to run these runs in the
 background of your Unix shell using \texttt{nohup}.
-\end{enumerate}\subsection{Future}
+\end{enumerate}
 
-Theseadditions are planned for the future:
+\subsection{Future sfCluster}
+
+These additions are planned for the future:
 
 \begin{itemize}
-\item Easy to use installation program
 \item Port to OpenMPI
 \item Faster SSH connections for observing
 \item Extended scheduler for system ressources
-\item Extended batch captabilities
 \end{itemize}
+
+%% History.
+\section{History of snowfall changes}
+You can also call: RShowDoc("NEWS", package="snowfall")
+
+\begin{itemize}
+
+\item 1.83 (API changes: minor additions)
+  \begin{itemize}
+  \item sfIsRunning: new function giving a logical is sfInit() was called or not. Needed, as all other snowfall functions implicitely call sfInit() if it was not called.
+  \end{itemize}
+
+\item 1.82
+  \begin{itemize}
+  \item Internal refactorings.
+  \end{itemize}
+
+\item 1.81
+  \begin{itemize}
+  \item Change in sfInit() MPI startup so sfCluster can run with snow > 0.3 now.
+  \item sfExport now also works in sequential mode (writing to global environment). This prevented sequential execution in some cases.
+  \end{itemize}
+
+\item 1.80 (API changes: minor additions)
+  \begin{itemize}
+  \item snowfall passes packages checks of R 2.10.1 without warning or error. Internal state is now only saved in the namespace itself (thanks to Uwe Ligges for the tipp).
+  \item sfExport can now also export objects in a specific namespace (argument 'namespace')
+  \item sfExport: behavior in error case manageable (stopOnError)
+  \item sfExport: smaller bugfixes.
+  \item sfRemoveAll can now also remove hidden names (argument 'hidden')
+  \item sfRemoveAll is more robust now (some minor bugfixes, more checks)
+  \item sfRemoveAll bugfix for multiple removals (thanks to Greggory Jefferis)
+  \item Bugfix on exception list on sfExportAll
+  \item Refactorings in sfTest()
+  \item snowfall now has a NEWS doc ;)
+  \item No warning on Mac OS because of default Mac-R command line arg 'gui' (thanks to Michael Siegel).
+  \end{itemize}
+
+\item 1.71 (API changes: none)
+      \begin{itemize}
+      \item Exporting of objects using \texttt{sfExport} is speed up (round 30%)
+      \item Fixed a bug on Windows in \texttt{sfSource}
+      \end{itemize}
+\item 1.70 (API changes: minor additions, BEHAVIOR CHANGES: logging)
+      \begin{itemize}
+      \item Behavior change: new default: no logging of slave/worker output.
+      \item API change: new argument \texttt{slaveOutfile} on \texttt{sfInit()}.
+      \item API change: new argument \texttt{restore} on \texttt{sfInit()}.
+      \item API change: new argument \texttt{master} on \texttt{sfCat}.
+      \item Windows startup fixed.
+      \item NWS startup fixed.
+      \item sfSapply is working as intended.
+      \item Changing CPU amount during runtime (with multiple sfInit() calls with different
+            settings in a single program) is now possible using socket and NWS clusters.
+      \item Dozens of small glitches inside snowfall fixed (also messages are made
+            more precisly).
+      \item Package vignette slightly extended.
+      \end{itemize}
+\end{itemize}
+
 \bibliographystyle{plain}
 \bibliography{all-bib}
 \end{document}
