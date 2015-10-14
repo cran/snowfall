@@ -161,11 +161,11 @@ sfInit <- function( parallel=NULL,
     print( .sfOption )
 
   ## If given restore-directory does not exist, create it.
-  if( !file.exists( .sfOption$RESTDIR ) ) {
-    ## 1.62: removed
-    ##    .sfOption$RESTDIR <<- path.expand( "~/.sfCluster/restore" )
-    dirCreateStop( .sfOption$RESTDIR )
-  }
+  ## if( !file.exists( .sfOption$RESTDIR ) ) {
+  ##   ## 1.62: removed
+  ##   ##    .sfOption$RESTDIR <<- path.expand( "~/.sfCluster/restore" )
+  ##   dirCreateStop( .sfOption$RESTDIR )
+  ## }
 
   ## Running in parallel mode? That means: Cluster setup.
   ## Will be blocked if argument "nostart" is set (for usage of snowfall
