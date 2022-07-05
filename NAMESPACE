@@ -45,3 +45,8 @@ export(
         ## Unit tests
         "sfTest"
       )
+
+import("snow")
+importFrom("stats", "na.omit", "runif")
+importFrom("utils", "assignInNamespace", "data", "getFromNamespace",
+           "packageDescription")

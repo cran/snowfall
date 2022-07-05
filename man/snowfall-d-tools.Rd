@@ -128,7 +128,7 @@ backwards from current environment to \code{globalenv()}. Use this mode
 if you want to export local variables from functions or other
 scopes to the slaves. In global mode only global variables from master
 are exported.\\
-\emph{Note: all exported variables are \emph{global} on the slaves!}\\
+\emph{Note: all exported variables are \bold{global} on the slaves!}\\
 If you have many identical named variables in different scopes, use
 argument \code{debug=TRUE} to view the context the exported variable
 is coming from.\\

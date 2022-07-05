@@ -259,20 +259,20 @@ sfInit <- function( parallel=NULL,
       setOption( "cluster", try( makeCluster( .sfOption$nodes,
                                               outfile = tmp ) ) )
     }
-    # Network Spaces
-    else if( .sfOption$type == "NWS" ) {
-      if( is.null( .sfOption$sockHosts ) || ( length( .sfOption$sockHosts ) == 0 ) )
-        setOption( "sockHosts", c( rep( "localhost", .sfOption$nodes ) ) )
-      else
-        setOption( "nodes", length( .sfOption$sockHosts ) )
+    ## # Network Spaces
+    ## else if( .sfOption$type == "NWS" ) {
+    ##   if( is.null( .sfOption$sockHosts ) || ( length( .sfOption$sockHosts ) == 0 ) )
+    ##     setOption( "sockHosts", c( rep( "localhost", .sfOption$nodes ) ) )
+    ##   else
+    ##     setOption( "nodes", length( .sfOption$sockHosts ) )
 
-        ## Patch Markus Schmidberger (Mail 11/25/2008).
-        setOption( "cluster", try( makeNWScluster(
-                                   .sfOption$sockHosts[1:.sfOption$nodes],
-                                   type = "NWS",
-                                   outfile = tmp
-                                 ) ) )
-    }
+    ##     ## Patch Markus Schmidberger (Mail 11/25/2008).
+    ##     setOption( "cluster", try( makeNWScluster(
+    ##                                .sfOption$sockHosts[1:.sfOption$nodes],
+    ##                                type = "NWS",
+    ##                                outfile = tmp
+    ##                              ) ) )
+    ## }
     # MPI cluster (also default for irregular type).
     else {
       ## 1.81: useRScript must be FALSE. Else sfCluster wont work
