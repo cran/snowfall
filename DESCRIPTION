@@ -1,7 +1,7 @@
 Package: snowfall
 Type: Package
 Title: Easier Cluster Computing (Based on 'snow')
-Version: 1.84-6.2
+Version: 1.84-6.3
 Date: 2013-12-18
 Author: Jochen Knaus
 Maintainer: Jochen Knaus <jo@imbi.uni-freiburg.de>
@@ -14,8 +14,9 @@ Description: Usability wrapper around snow for easier development of
 Depends: R (>= 2.10), snow
 Suggests: Rmpi
 License: GPL
-Encoding: latin1
-Packaged: 2022-07-05 09:48:25 UTC; hornik
+Encoding: UTF-8
+Packaged: 2023-11-26 11:34:08 UTC; hornik
 Repository: CRAN
-Date/Publication: 2022-07-05 11:36:28 UTC
+Date/Publication: 2023-11-26 13:55:58 UTC
 NeedsCompilation: no
+LazyData: yes
